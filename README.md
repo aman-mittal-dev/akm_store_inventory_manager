@@ -59,4 +59,3 @@ FastAPI + PostgreSQL scaffold is available in:
 
 Whenever you add or change a feature (even small), please update **`README.md`**, **`CHANGELOG.md`**, and follow the checklist in **`GIT_GITHUB_GUIDELINES.md`** (documentation section).
 # akm_store_inventory_manager
-# akm_store_inventory_manager

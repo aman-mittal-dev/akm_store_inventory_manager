@@ -1,0 +1,83 @@
+# IDE
+.vscode/
+.idea/
+
+### Python ###
+# Python backend artifacts
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+__pycache__/
+
+backend-fastapi/*.py[cod]
+backend-fastapi/.pytest_cache/
+backend-fastapi/.mypy_cache/
+backend-fastapi/__pycache__/
+
+# Python Virtual Environment
+.venv/
+venv/
+*.pyc
+
+backend-fastapi/.venv/
+backend-fastapi/venv/
+backend-fastapi/*.pyc
+
+# Python Environment files
+.env
+.env.*
+.env.local
+.env.*.local
+
+backend-fastapi/.env
+backend-fastapi/.env.*
+backend-fastapi/.env.local
+backend-fastapi/.env.*.local
+
+# CONFIG files
+backend-fastapi/core/config.py
+backend-fastapi/core/config
+backend-fastapi/app/core/config.py
+backend-fastapi/app/core/config
+
+### Node ###
+
+# Node Modules
+node_modules/
+
+# Build folders
+dist/
+build/
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Markdown files
+guidelines/
+guidelines/guidelines.md
+ATTRIBUTIONS.md
+CHANGELOG.md
+CONTRIBUTING.md
+FRONTEND_API_WIRING_STEPS.md
+GIT_GITHUB_GUIDELINES.md
+SAAS_BACKEND_IMPLEMENTATION_GUIDE.md
+
+# Ignore Supabase local files
+supabase/.temp/
+supabase/.branches/
+
+# Ignore package lock if needed
+# package-lock.json
+
+# Ignore frontend env
+src/.env
+
+# Ignore database files
+*.sqlite3
+
+# Ignore Vite config if needed
+vite.config.ts
