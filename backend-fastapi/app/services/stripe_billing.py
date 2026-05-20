@@ -21,20 +21,54 @@ def configure_stripe() -> None:
     stripe.api_key = settings.STRIPE_SECRET_KEY
 
 
-def catalog_base_amount_inr(plan: str, custom_months: int | None) -> int:
-    if plan == "monthly":
-        return 999
-    if plan == "quarterly":
-        return 2699
-    if plan == "annual":
-        return 9999
-    if plan == "custom":
-        n = custom_months or 6
-        n = max(1, min(n, 60))
-        per = 899 if n >= 6 else 999
-        return n * per
-    raise ValueError(f"Unknown plan {plan!r}")
+def catalog_base_amount_inr(plan: str, custom_months: int | None = None) -> int:
+    MONTHLY_PRICE = 199
 
+    if plan == "monthly":
+        return MONTHLY_PRICE
+
+    if plan == "quarterly":
+        # 3 months with 5% discount
+        return round(MONTHLY_PRICE * 3 * 0.95)
+
+    if plan == "annual":
+        # 12 months with 15% discount
+        return round(MONTHLY_PRICE * 12 * 0.85)
+
+    if plan == "custom":
+        n = custom_months or 1
+        n = max(1, min(n, 60))
+
+        # 1–2 months → 0%
+        if n <= 2:
+            discount = 0
+
+        # 3–5 months → 5%
+        elif 3 <= n <= 5:
+            discount = 5
+
+        # 6–11 months → 10%
+        elif 6 <= n <= 11:
+            discount = 10
+
+        # 12–17 months → 15%
+        elif 12 <= n <= 17:
+            discount = 15
+
+        # 18–23 months → 20%
+        elif 18 <= n <= 23:
+            discount = 20
+
+        # 24+ months → 25%
+        else:
+            discount = 25
+
+        total = MONTHLY_PRICE * n
+        final_price = total - (total * discount / 100)
+
+        return round(final_price)
+
+    raise ValueError(f"Unknown plan {plan!r}")
 
 def total_inr_with_gst(base_inr: int) -> int:
     return int(round(base_inr * 1.18))

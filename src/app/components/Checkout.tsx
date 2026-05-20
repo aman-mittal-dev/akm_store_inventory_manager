@@ -37,51 +37,111 @@ export function Checkout() {
   }
 
   const getPlanDetails = () => {
-    const customDuration = durationParam ? parseInt(durationParam, 10) : 6;
+    const MONTHLY_PRICE = 199;
+
+    const customDuration = durationParam
+      ? parseInt(durationParam, 10)
+      : 1;
+
+    const calculateDiscount = (months) => {
+
+      // 1–2 months → 0%
+      if (months <= 2) return 0;
+
+      // 3–5 months → 5%
+      if (months >= 3 && months <= 5) return 5;
+
+      // 6–11 months → 10%
+      if (months >= 6 && months <= 11) return 10;
+
+      // 12–17 months → 15%
+      if (months >= 12 && months <= 17) return 15;
+
+      // 18–23 months → 20%
+      if (months >= 18 && months <= 23) return 20;
+
+      // 24+ months → 25%
+      return 25;
+    };
+
+    const calculatePrice = (months) => {
+      const discount = calculateDiscount(months);
+
+      const originalPrice = MONTHLY_PRICE * months;
+
+      const discountedPrice =
+        originalPrice - (originalPrice * discount) / 100;
+
+      return {
+        originalPrice,
+        finalPrice: Math.round(discountedPrice),
+        discount,
+        savings: Math.round(originalPrice - discountedPrice),
+      };
+    };
 
     switch (planParam) {
-      case 'monthly':
+
+      case "monthly": {
         return {
-          name: 'Monthly Plan',
-          duration: '1 Month',
-          price: 999,
+          name: "Monthly Plan",
+          duration: "1 Month",
+          price: MONTHLY_PRICE,
           months: 1,
+          discount: 0,
+          savings: 0,
         };
-      case 'quarterly':
+      }
+
+      case "quarterly": {
+        const pricing = calculatePrice(3);
+
         return {
-          name: 'Quarterly Plan',
-          duration: '3 Months',
-          price: 2699,
+          name: "Quarterly Plan",
+          duration: "3 Months",
+          price: pricing.finalPrice,
           months: 3,
-          savings: 298,
+          discount: pricing.discount,
+          savings: pricing.savings,
         };
-      case 'annual':
+      }
+
+      case "annual": {
+        const pricing = calculatePrice(12);
+
         return {
-          name: 'Annual Plan',
-          duration: '12 Months',
-          price: 9999,
+          name: "Annual Plan",
+          duration: "12 Months",
+          price: pricing.finalPrice,
           months: 12,
-          savings: 1989,
+          discount: pricing.discount,
+          savings: pricing.savings,
         };
-      case 'custom': {
-        const pricePerMonth = customDuration >= 6 ? 899 : 999;
-        const totalPrice = customDuration * pricePerMonth;
-        const regularPrice = customDuration * 999;
+      }
+
+      case "custom": {
+        const pricing = calculatePrice(customDuration);
+
         return {
           name: `Custom ${customDuration}-Month Plan`,
           duration: `${customDuration} Months`,
-          price: totalPrice,
+          price: pricing.finalPrice,
           months: customDuration,
-          savings: customDuration >= 6 ? regularPrice - totalPrice : 0,
+          discount: pricing.discount,
+          savings: pricing.savings,
         };
       }
-      default:
+
+      default: {
         return {
-          name: 'Monthly Plan',
-          duration: '1 Month',
-          price: 999,
+          name: "Monthly Plan",
+          duration: "1 Month",
+          price: MONTHLY_PRICE,
           months: 1,
+          discount: 0,
+          savings: 0,
         };
+      }
     }
   };
 
