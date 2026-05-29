@@ -10,7 +10,7 @@ This repository currently contains the frontend application. It can be used as:
 
 ## Recent features
 
-- **Bill delivery** (with FastAPI backend): from each bill view, send **email** (SendGrid or SMTP/Brevo) or **WhatsApp** (Meta Cloud API or Twilio) with **Send now** / **Send later** above the bill; every send and resend is logged with timestamps. Configure provider keys in `backend-fastapi/.env` (see `backend-fastapi/.env.example` and `backend-fastapi/README.md`).
+- **Bill sharing** (with FastAPI backend): on each bill, use the **email** and **WhatsApp** icon buttons to send the invoice PDF. The server picks SendGrid vs SMTP/Brevo and Meta vs Twilio from `backend-fastapi/.env` (no provider dropdowns in the UI). Optional **Schedule for later** in the send dialog; send history still appears on the printed bill.
 - **Parties hub** (`/parties`): see which **customers owe you** (receivable) and which **suppliers you owe** (payable), based on pending amounts on recorded bills.
 - **Party drill-down**: `/parties/customer/...` or `/parties/supplier/...` shows **all invoices** for that identity and lets you edit **extra profile fields** (email, GST, address, notes) saved in-browser until backend party endpoints exist.
 - **Roll prior balance into new bill**: On **Record Sale** and **Purchase Stock**, after you enter a customer/supplier that already has unpaid history, you can **add prior outstanding** onto the **current invoice total** (matching is by **normalized name + phone digits** — same person must use consistent contact fields).

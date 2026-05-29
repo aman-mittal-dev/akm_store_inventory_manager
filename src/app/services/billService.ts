@@ -33,9 +33,18 @@ export type BillDeliveryRow = {
   createdAt: string;
 };
 
+export type DeliveryConfig = {
+  emailEnabled: boolean;
+  whatsappEnabled: boolean;
+};
+
+export function getDeliveryConfig() {
+  return apiFetch<DeliveryConfig>("/bills/delivery-config");
+}
+
 export type DeliverBillPayload = {
   channel: "email" | "whatsapp";
-  provider: "sendgrid" | "smtp_brevo" | "twilio_whatsapp" | "meta_whatsapp";
+  provider?: "sendgrid" | "smtp_brevo" | "twilio_whatsapp" | "meta_whatsapp";
   recipientEmail?: string;
   recipientPhoneE164?: string;
   sendMode: "now" | "later";

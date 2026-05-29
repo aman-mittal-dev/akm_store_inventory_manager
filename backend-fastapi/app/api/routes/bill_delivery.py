@@ -5,8 +5,19 @@ from app.api.deps import get_current_user
 from app.db.session import get_db
 from app.models.bill_delivery import BillDelivery
 from app.models.user import User
-from app.schemas.delivery import BillDeliveryOut, DeliverBillRequest, ApiResponse, BillApiResponse
+from app.schemas.delivery import (
+    BillDeliveryOut,
+    DeliverBillRequest,
+    ApiResponse,
+    BillApiResponse,
+    DeliveryConfigOut,
+)
 from app.services.bill_delivery_dispatch import ensure_printed_bill_id, execute_delivery
+from app.services.bill_delivery_config import (
+    delivery_config_public,
+    resolve_email_provider,
+    resolve_whatsapp_provider,
+)
 
 router = APIRouter(prefix="/bills", tags=["Bill-Delivery"])
 
@@ -28,6 +39,18 @@ def _to_out(d: BillDelivery) -> BillDeliveryOut:
         sentAt=d.sent_at,
         createdAt=d.created_at,
     )
+
+
+@router.get("/delivery-config", response_model=ApiResponse)
+def get_delivery_config(res: Response, current_user: User = Depends(get_current_user)):
+    _ = current_user
+    cfg = delivery_config_public()
+    res.status_code = status.HTTP_200_OK
+    return {
+        "data": DeliveryConfigOut(**cfg).model_dump(),
+        "message": "Delivery configuration",
+        "status": status.HTTP_200_OK,
+    }
 
 
 @router.post("/{bill_number}/deliver", response_model=ApiResponse)
@@ -78,6 +101,28 @@ def create_delivery(res: Response, bill_number: str, body: DeliverBillRequest, d
                 "status": status.HTTP_400_BAD_REQUEST
             }
 
+        channel = body.channel.lower()
+        provider = (body.provider or "").strip().lower()
+        if not provider:
+            if channel == "email":
+                provider = resolve_email_provider() or ""
+                if not provider:
+                    res.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
+                    return {
+                        "data": None,
+                        "message": "Email delivery is not configured on the server (set SendGrid or SMTP/Brevo credentials).",
+                        "status": status.HTTP_503_SERVICE_UNAVAILABLE,
+                    }
+            else:
+                provider = resolve_whatsapp_provider() or ""
+                if not provider:
+                    res.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
+                    return {
+                        "data": None,
+                        "message": "WhatsApp delivery is not configured on the server (set Meta Cloud API or Twilio credentials).",
+                        "status": status.HTTP_503_SERVICE_UNAVAILABLE,
+                    }
+
         mode = body.sendMode.lower()
         if mode == "now":
             send_mode = "immediate"
@@ -99,8 +144,8 @@ def create_delivery(res: Response, bill_number: str, body: DeliverBillRequest, d
             owner_id=current_user.id,
             bill_number=bn,
             printed_bill_id=pb_id,
-            channel=body.channel.lower(),
-            provider=body.provider.lower(),
+            channel=channel,
+            provider=provider,
             recipient_email=(body.recipientEmail or "").strip() or None,
             recipient_phone_e164=(body.recipientPhoneE164 or "").strip() or None,
             send_mode=send_mode,

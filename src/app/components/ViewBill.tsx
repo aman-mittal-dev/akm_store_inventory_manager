@@ -13,7 +13,7 @@ import { jsPDF } from 'jspdf';
 import { listBillDeliveries, savePrintedBillApi, type BillDeliveryRow } from '../services/billService';
 import { generateAdHocSku } from '../utils/sku';
 import { humanizeApiError } from '../utils/apiErrors';
-import { BillDeliveryPanel } from './BillDeliveryPanel';
+import { BillShareActions } from './BillShareActions';
 import { toast } from 'sonner';
 
 type InvoiceType = 'internal' | 'customer';
@@ -45,20 +45,16 @@ export function ViewBill() {
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
   const printableRef = useRef<HTMLDivElement>(null);
   const [deliveryLogs, setDeliveryLogs] = useState<BillDeliveryRow[]>([]);
-  const [deliveryLogsLoading, setDeliveryLogsLoading] = useState(true);
 
   const refreshDeliveryLogs = useCallback(async () => {
     if (!transactionId) {
       return;
     }
-    setDeliveryLogsLoading(true);
     try {
       const rows = await listBillDeliveries(transactionId);
       setDeliveryLogs(rows);
     } catch {
       setDeliveryLogs([]);
-    } finally {
-      setDeliveryLogsLoading(false);
     }
   }, [transactionId]);
 
@@ -376,7 +372,20 @@ export function ViewBill() {
             </div>
           )}
           {!isEditing ? (
-            <div className="flex gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <BillShareActions
+                billNumber={transaction.billNumber}
+                logs={deliveryLogs}
+                onRefreshLogs={refreshDeliveryLogs}
+                billFormat={billFormat}
+                invoiceType={invoiceType}
+                defaultPhone={
+                  isSale
+                    ? outgoingTransaction?.customerContact ?? ''
+                    : incomingTransaction?.supplierContact ?? ''
+                }
+                onCapturePdfBase64={captureBillPdfBase64}
+              />
               <Button variant="outline" onClick={handleStartEdit} className="flex-1 md:flex-none">
                 <Edit2 className="w-4 h-4 mr-2" />
                 <span className="hidden sm:inline">Edit Invoice</span>
@@ -402,16 +411,6 @@ export function ViewBill() {
           )}
         </div>
       </div>
-
-      <BillDeliveryPanel
-        billNumber={transaction.billNumber}
-        logs={deliveryLogs}
-        loadingLogs={deliveryLogsLoading}
-        onRefreshLogs={refreshDeliveryLogs}
-        billFormat={billFormat}
-        invoiceType={invoiceType}
-        onCapturePdfBase64={captureBillPdfBase64}
-      />
 
       <div ref={printableRef}>
       {billFormat === 'compact' ? (

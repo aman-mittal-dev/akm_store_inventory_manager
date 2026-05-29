@@ -3,9 +3,17 @@ from datetime import datetime
 from pydantic import BaseModel, Field, model_validator
 
 
+class DeliveryConfigOut(BaseModel):
+    emailEnabled: bool
+    whatsappEnabled: bool
+
+
 class DeliverBillRequest(BaseModel):
     channel: str = Field(description="email | whatsapp")
-    provider: str = Field(description="sendgrid | smtp_brevo | twilio_whatsapp | meta_whatsapp")
+    provider: str | None = Field(
+        default=None,
+        description="Optional; server picks SendGrid/SMTP or Meta/Twilio from env when omitted",
+    )
     recipientEmail: str | None = None
     recipientPhoneE164: str | None = Field(default=None, description="E.164 including +")
     sendMode: str = Field(description="now | later")
@@ -19,15 +27,16 @@ class DeliverBillRequest(BaseModel):
     @model_validator(mode="after")
     def validate_fields(self):
         c = self.channel.lower()
-        p = self.provider.lower()
         if c not in ("email", "whatsapp"):
             raise ValueError("channel must be email or whatsapp")
-        if p not in ("sendgrid", "smtp_brevo", "twilio_whatsapp", "meta_whatsapp"):
-            raise ValueError("invalid provider")
-        if c == "email" and p not in ("sendgrid", "smtp_brevo"):
-            raise ValueError("email channel requires sendgrid or smtp_brevo")
-        if c == "whatsapp" and p not in ("twilio_whatsapp", "meta_whatsapp"):
-            raise ValueError("whatsapp channel requires twilio_whatsapp or meta_whatsapp")
+        if self.provider is not None:
+            p = self.provider.lower()
+            if p not in ("sendgrid", "smtp_brevo", "twilio_whatsapp", "meta_whatsapp"):
+                raise ValueError("invalid provider")
+            if c == "email" and p not in ("sendgrid", "smtp_brevo"):
+                raise ValueError("email channel requires sendgrid or smtp_brevo")
+            if c == "whatsapp" and p not in ("twilio_whatsapp", "meta_whatsapp"):
+                raise ValueError("whatsapp channel requires twilio_whatsapp or meta_whatsapp")
         mode = self.sendMode.lower()
         if mode not in ("now", "later"):
             raise ValueError("sendMode must be now or later")
