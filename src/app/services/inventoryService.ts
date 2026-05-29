@@ -4,6 +4,7 @@ import {
   IncomingTransaction,
   OutgoingTransaction,
   NewInventoryItemInput,
+  PaymentRecord,
 } from "../types";
 
 export function getItemsApi() {
@@ -54,6 +55,7 @@ type ApiTransaction = {
   notes?: string | null;
   items: IncomingTransaction["items"];
   previousOutstandingCarried?: number;
+  paymentHistory?: PaymentRecord[];
 };
 
 export function getTransactionsApi() {
@@ -76,6 +78,21 @@ export function createOutgoingTransactionApi(payload: Omit<OutgoingTransaction, 
   });
 }
 
+export function updatePaymentStatusApi(
+  transactionId: string,
+  payload: {
+    paymentStatus: "paid" | "partial" | "unpaid";
+    paidAmount: number;
+    pendingAmount: number;
+    paymentHistory: PaymentRecord[];
+  },
+) {
+  return apiFetch<ApiTransaction>(`/transactions/${transactionId}/payment-status`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
 export function mapIncomingTransaction(tx: ApiTransaction): IncomingTransaction {
   return {
     id: tx.id,
@@ -90,6 +107,7 @@ export function mapIncomingTransaction(tx: ApiTransaction): IncomingTransaction 
     date: tx.date,
     notes: tx.notes || undefined,
     billNumber: tx.billNumber,
+    paymentHistory: tx.paymentHistory,
   };
 }
 
@@ -108,5 +126,6 @@ export function mapOutgoingTransaction(tx: ApiTransaction): OutgoingTransaction 
     date: tx.date,
     notes: tx.notes || undefined,
     billNumber: tx.billNumber,
+    paymentHistory: tx.paymentHistory,
   };
 }

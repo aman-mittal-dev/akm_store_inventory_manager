@@ -18,6 +18,7 @@ import {
   mapIncomingTransaction,
   mapOutgoingTransaction,
   updateItemApi,
+  updatePaymentStatusApi,
 } from '../services/inventoryService';
 import { humanizeApiError } from '../utils/apiErrors';
 
@@ -146,6 +147,42 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
     );
   };
 
+  const updateTransactionPayment = async (
+    id: string,
+    transactionType: 'incoming' | 'outgoing',
+    payment: Pick<IncomingTransaction, 'paidAmount' | 'pendingAmount' | 'paymentStatus' | 'paymentHistory'>,
+  ): Promise<void> => {
+    try {
+      const updated = await updatePaymentStatusApi(id, {
+        paymentStatus: payment.paymentStatus,
+        paidAmount: payment.paidAmount,
+        pendingAmount: payment.pendingAmount,
+        paymentHistory: payment.paymentHistory ?? [],
+      });
+
+      const mapped =
+        transactionType === 'incoming'
+          ? mapIncomingTransaction(updated)
+          : mapOutgoingTransaction(updated);
+
+      if (transactionType === 'incoming') {
+        setIncomingTransactions((prev) =>
+          prev.map((transaction) => (transaction.id === id ? { ...transaction, ...mapped } : transaction)),
+        );
+      } else {
+        setOutgoingTransactions((prev) =>
+          prev.map((transaction) => (transaction.id === id ? { ...transaction, ...mapped } : transaction)),
+        );
+      }
+
+      toast.success('Payment status updated successfully.');
+    } catch (error) {
+      const msg = humanizeApiError(error, 'Could not update payment status.');
+      toast.error(msg);
+      throw error;
+    }
+  };
+
   const getTransactionsByItemId = (itemId: string) => {
     return {
       incoming: incomingTransactions.filter((t) => t.items.some((i) => i.itemId === itemId)),
@@ -172,6 +209,7 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
         addOutgoingTransaction,
         updateIncomingTransaction,
         updateOutgoingTransaction,
+        updateTransactionPayment,
         getTransactionsByItemId,
         updateStoreSettings,
       }}

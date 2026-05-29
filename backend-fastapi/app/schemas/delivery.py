@@ -1,5 +1,5 @@
+from typing import Any, Optional
 from datetime import datetime
-
 from pydantic import BaseModel, Field, model_validator
 
 
@@ -61,5 +61,10 @@ class BillDeliveryOut(BaseModel):
 
 class ApiResponse(BaseModel):
     data: dict | None = None
+    message: str
+    status: int
+
+class BillApiResponse(BaseModel):
+    data: Optional[Any] = None
     message: str
     status: int

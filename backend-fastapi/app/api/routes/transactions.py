@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from fastapi import APIRouter, Depends, status, Response
 from sqlalchemy.orm import Session
 from app.api.deps import get_current_user
@@ -5,9 +7,61 @@ from app.db.session import get_db
 from app.models.item import Item
 from app.models.transaction import StockTransaction
 from app.models.user import User
-from app.schemas.transaction import IncomingTransactionCreate, OutgoingTransactionCreate, TransactionOut, ApiResponse
+from app.schemas.transaction import (
+    IncomingTransactionCreate,
+    OutgoingTransactionCreate,
+    PaymentRecordIn,
+    PaymentStatusUpdate,
+    TransactionOut,
+    ApiResponse,
+)
 
 router = APIRouter(prefix="/transactions", tags=["Transactions"])
+
+
+def _build_items_json(
+    items: list[dict],
+    previous_outstanding_carried: float,
+    payment_history: list[PaymentRecordIn] | None = None,
+    paid_amount: float = 0,
+    transaction_date: datetime | None = None,
+) -> dict:
+    history = list(payment_history or [])
+    if not history and paid_amount > 0 and transaction_date is not None:
+        history = [
+            PaymentRecordIn(
+                id="legacy",
+                amount=paid_amount,
+                date=transaction_date,
+                method=None,
+                notes="Previously recorded payment",
+            )
+        ]
+
+    return {
+        "items": items,
+        "previousOutstandingCarried": previous_outstanding_carried,
+        "paymentHistory": [entry.model_dump(mode="json") for entry in history],
+    }
+
+
+def _payment_history_records(transaction: StockTransaction) -> list[PaymentRecordIn]:
+    raw = transaction.items_json.get("paymentHistory")
+    if isinstance(raw, list) and raw:
+        return [PaymentRecordIn.model_validate(entry) for entry in raw]
+
+    paid = float(transaction.paid_amount)
+    if paid > 0:
+        return [
+            PaymentRecordIn(
+                id="legacy",
+                amount=paid,
+                date=transaction.transaction_date,
+                method=None,
+                notes="Previously recorded payment",
+            )
+        ]
+    return []
 
 
 def _serialize(transaction: StockTransaction) -> TransactionOut:
@@ -31,6 +85,7 @@ def _serialize(transaction: StockTransaction) -> TransactionOut:
         notes=transaction.notes,
         items=transaction.items_json.get("items", []),
         previousOutstandingCarried=carried_float,
+        paymentHistory=_payment_history_records(transaction),
     )
 
 
@@ -87,10 +142,13 @@ def create_incoming(res: Response, payload: IncomingTransactionCreate, db: Sessi
             pending_amount=payload.pendingAmount,
             total_amount=payload.totalCost,
             total_profit=None,
-            items_json={
-                "items": [item.model_dump() for item in payload.items],
-                "previousOutstandingCarried": payload.previousOutstandingCarried or 0,
-            },
+            items_json=_build_items_json(
+                items=[item.model_dump() for item in payload.items],
+                previous_outstanding_carried=payload.previousOutstandingCarried or 0,
+                payment_history=payload.paymentHistory,
+                paid_amount=payload.paidAmount,
+                transaction_date=payload.date,
+            ),
         )
         db.add(transaction)
         db.commit()
@@ -133,10 +191,13 @@ def create_outgoing(res: Response, payload: OutgoingTransactionCreate, db: Sessi
             pending_amount=payload.pendingAmount,
             total_amount=payload.totalRevenue,
             total_profit=payload.totalProfit,
-            items_json={
-                "items": [item.model_dump() for item in payload.items],
-                "previousOutstandingCarried": payload.previousOutstandingCarried or 0,
-            },
+            items_json=_build_items_json(
+                items=[item.model_dump() for item in payload.items],
+                previous_outstanding_carried=payload.previousOutstandingCarried or 0,
+                payment_history=payload.paymentHistory,
+                paid_amount=payload.paidAmount,
+                transaction_date=payload.date,
+            ),
         )
         db.add(transaction)
         db.commit()
@@ -155,4 +216,61 @@ def create_outgoing(res: Response, payload: OutgoingTransactionCreate, db: Sessi
             "data": None,
             "message": "An error occurred while creating the transaction",
             "status": status.HTTP_400_BAD_REQUEST
+        }
+
+
+@router.patch("/{transaction_id}/payment-status", response_model=ApiResponse)
+def update_payment_status(
+    transaction_id: str,
+    payload: PaymentStatusUpdate,
+    res: Response,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    try:
+        transaction = (
+            db.query(StockTransaction)
+            .filter(
+                StockTransaction.id == transaction_id,
+                StockTransaction.owner_id == current_user.id,
+            )
+            .first()
+        )
+
+        if not transaction:
+            res.status_code = status.HTTP_404_NOT_FOUND
+            return {
+                "data": None,
+                "message": "Transaction not found",
+                "status": status.HTTP_404_NOT_FOUND,
+            }
+
+        # Update fields
+        transaction.payment_status = payload.paymentStatus
+        transaction.paid_amount = payload.paidAmount
+        transaction.pending_amount = payload.pendingAmount
+        items_json = dict(transaction.items_json)
+        items_json["paymentHistory"] = [
+            entry.model_dump(mode="json") for entry in payload.paymentHistory
+        ]
+        transaction.items_json = items_json
+
+        db.commit()
+        db.refresh(transaction)
+
+        res.status_code = status.HTTP_200_OK
+        return {
+            "data": _serialize(transaction),
+            "message": "Payment status updated successfully",
+            "status": status.HTTP_200_OK,
+        }
+
+    except Exception as e:
+        db.rollback()
+
+        res.status_code = status.HTTP_400_BAD_REQUEST
+        return {
+            "data": None,
+            "message": "An error occurred while updating payment status",
+            "status": status.HTTP_400_BAD_REQUEST,
         }

@@ -99,6 +99,11 @@ export interface InventoryContextType {
   addOutgoingTransaction: (transaction: Omit<OutgoingTransaction, 'id'>) => void;
   updateIncomingTransaction: (id: string, transaction: Partial<IncomingTransaction>) => void;
   updateOutgoingTransaction: (id: string, transaction: Partial<OutgoingTransaction>) => void;
+  updateTransactionPayment: (
+    id: string,
+    transactionType: 'incoming' | 'outgoing',
+    payment: Pick<IncomingTransaction, 'paidAmount' | 'pendingAmount' | 'paymentStatus' | 'paymentHistory'>,
+  ) => Promise<void>;
   getTransactionsByItemId: (itemId: string) => { incoming: IncomingTransaction[], outgoing: OutgoingTransaction[] };
   updateStoreSettings: (settings: Partial<StoreSettings>) => void;
 }

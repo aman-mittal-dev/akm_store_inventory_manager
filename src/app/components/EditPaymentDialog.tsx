@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from './ui/dialog';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -8,6 +8,7 @@ import { Textarea } from './ui/textarea';
 import { CreditCard, Plus } from 'lucide-react';
 import { formatINR } from '../utils/currency';
 import { PaymentRecord } from '../types';
+import { resolveInitialPaymentHistory } from '../utils/paymentHistory';
 
 interface EditPaymentDialogProps {
   isOpen: boolean;
@@ -35,7 +36,16 @@ export function EditPaymentDialog({
   const [newPaymentAmount, setNewPaymentAmount] = useState('');
   const [newPaymentMethod, setNewPaymentMethod] = useState('cash');
   const [newPaymentNotes, setNewPaymentNotes] = useState('');
-  const [paymentHistory, setPaymentHistory] = useState<PaymentRecord[]>(currentPaymentHistory);
+  const [paymentHistory, setPaymentHistory] = useState<PaymentRecord[]>([]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    setPaymentHistory(resolveInitialPaymentHistory(currentPaymentHistory, currentPaidAmount));
+    setNewPaymentAmount('');
+    setNewPaymentMethod('cash');
+    setNewPaymentNotes('');
+  }, [isOpen, currentPaymentHistory, currentPaidAmount]);
 
   const totalPaid = paymentHistory.reduce((sum, payment) => sum + payment.amount, 0);
   const remainingBalance = totalAmount - totalPaid;

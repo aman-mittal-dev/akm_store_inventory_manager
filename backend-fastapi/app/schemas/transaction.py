@@ -12,6 +12,14 @@ class TransactionItemIn(BaseModel):
     totalPrice: float
 
 
+class PaymentRecordIn(BaseModel):
+    id: str
+    amount: float
+    date: datetime
+    method: str | None = None
+    notes: str | None = None
+
+
 class IncomingTransactionCreate(BaseModel):
     items: list[TransactionItemIn]
     totalCost: float
@@ -24,6 +32,7 @@ class IncomingTransactionCreate(BaseModel):
     date: datetime
     notes: str | None = None
     billNumber: str
+    paymentHistory: list[PaymentRecordIn] | None = None
 
 
 class OutgoingTransactionCreate(BaseModel):
@@ -39,6 +48,7 @@ class OutgoingTransactionCreate(BaseModel):
     date: datetime
     notes: str | None = None
     billNumber: str
+    paymentHistory: list[PaymentRecordIn] | None = None
 
 
 class TransactionOut(BaseModel):
@@ -56,6 +66,14 @@ class TransactionOut(BaseModel):
     notes: str | None = None
     items: list[TransactionItemIn]
     previousOutstandingCarried: float = 0
+    paymentHistory: list[PaymentRecordIn] = []
+
+
+class PaymentStatusUpdate(BaseModel):
+    paymentStatus: Literal["paid", "partial", "unpaid"]
+    paidAmount: float
+    pendingAmount: float
+    paymentHistory: list[PaymentRecordIn] = []
 
 
 class ApiResponse(BaseModel):

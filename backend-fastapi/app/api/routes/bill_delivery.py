@@ -5,7 +5,7 @@ from app.api.deps import get_current_user
 from app.db.session import get_db
 from app.models.bill_delivery import BillDelivery
 from app.models.user import User
-from app.schemas.delivery import BillDeliveryOut, DeliverBillRequest, ApiResponse
+from app.schemas.delivery import BillDeliveryOut, DeliverBillRequest, ApiResponse, BillApiResponse
 from app.services.bill_delivery_dispatch import ensure_printed_bill_id, execute_delivery
 
 router = APIRouter(prefix="/bills", tags=["Bill-Delivery"])
@@ -131,7 +131,7 @@ def create_delivery(res: Response, bill_number: str, body: DeliverBillRequest, d
             "status": status.HTTP_400_BAD_REQUEST
         }
 
-@router.get("/{bill_number}/deliveries", response_model=ApiResponse)
+@router.get("/{bill_number}/deliveries", response_model=BillApiResponse)
 def list_deliveries(res: Response, bill_number: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     try:
         bn = bill_number.strip()

@@ -22,7 +22,7 @@ type BillFormat = 'full' | 'compact';
 export function ViewBill() {
   const { transactionId } = useParams();
   const navigate = useNavigate();
-  const { outgoingTransactions, incomingTransactions, items, storeSettings, updateOutgoingTransaction, updateIncomingTransaction } = useInventory();
+  const { outgoingTransactions, incomingTransactions, items, storeSettings, updateOutgoingTransaction, updateIncomingTransaction, updateTransactionPayment } = useInventory();
 
   // Try to find in outgoing (sales) first
   const outgoingTransaction = outgoingTransactions.find(t => t.billNumber === transactionId);
@@ -316,14 +316,14 @@ export function ViewBill() {
     paymentHistory: PaymentRecord[]
   ) => {
     if (isSale && outgoingTransaction) {
-      updateOutgoingTransaction(outgoingTransaction.id, {
+      void updateTransactionPayment(outgoingTransaction.id, 'outgoing', {
         paidAmount,
         pendingAmount,
         paymentStatus,
         paymentHistory,
       });
     } else if (!isSale && incomingTransaction) {
-      updateIncomingTransaction(incomingTransaction.id, {
+      void updateTransactionPayment(incomingTransaction.id, 'incoming', {
         paidAmount,
         pendingAmount,
         paymentStatus,
