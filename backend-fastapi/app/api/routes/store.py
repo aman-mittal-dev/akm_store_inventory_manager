@@ -39,10 +39,10 @@ def get_store_information(
             store = Store(
                 owner_id=current_user.id,
                 store_name="Store Inventory Manager",
-                gst_number="29XXXXX1234X1ZX",
-                address="123 Main Street, City, State - 560001",
-                phone_number="+91 9876543210",
-                email="store@example.com",
+                gst_number="",
+                address="",
+                phone_number="",
+                email=current_user.email,
             )
 
             db.add(store)
