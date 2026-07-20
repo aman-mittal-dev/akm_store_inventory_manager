@@ -1,83 +1,126 @@
+# ==================================================
 # IDE
+# ==================================================
 .vscode/
 .idea/
 
-### Python ###
-# Python backend artifacts
+# ==================================================
+# OS Files
+# ==================================================
+.DS_Store
+Thumbs.db
+
+# ==================================================
+# Python (Backend)
+# ==================================================
+__pycache__/
 *.py[cod]
 .pytest_cache/
 .mypy_cache/
-__pycache__/
 
-backend-fastapi/*.py[cod]
-backend-fastapi/.pytest_cache/
-backend-fastapi/.mypy_cache/
-backend-fastapi/__pycache__/
 
-# Python Virtual Environment
+backend/__pycache__/
+backend/*.py[cod]
+backend/.pytest_cache/
+backend/.mypy_cache/
+
+# ==================================================
+# Virtual Environments
+# ==================================================
 .venv/
 venv/
+env/
 *.pyc
 
-backend-fastapi/.venv/
-backend-fastapi/venv/
-backend-fastapi/*.pyc
+backend/.venv/
+backend/venv/
+backend/env/
+backend/*.pyc
 
-# Python Environment files
+# ==================================================
+# Root Environment
+# ==================================================
+backend/.env
+backend/.env.*
+backend/.env.local
+backend/.env.*.local
 .env
 .env.*
 .env.local
 .env.*.local
 
-backend-fastapi/.env
-backend-fastapi/.env.*
-backend-fastapi/.env.local
-backend-fastapi/.env.*.local
+# ==================================================
+# Backend Environment
+# ==================================================
+backend/.env
+backend/.env.*
+backend/.env.local
+backend/.env.*.local
 
+# ==================================================
+# Front Environment
+# ==================================================
+frontend/.env
+frontend/.env.*
+frontend/.env.local
+frontend/.env.*.local
+
+# ==================================================
 # CONFIG files
-backend-fastapi/core/config.py
-backend-fastapi/core/config
-backend-fastapi/app/core/config.py
-backend-fastapi/app/core/config
+# ==================================================
+backend/core/config.py
+backend/core/config
+backend/app/core/config.py
+backend/app/core/config
 
-### Node ###
+# ==================================================
+# Node/Frontend
+# ==================================================
+frontend/node_modules/
+frontend/dist/
+frontend/build/
+frontend/.vite/
 
-# Node Modules
-node_modules/
-
-# Build folders
-dist/
-build/
-
+# ==================================================
 # Logs
+# ==================================================
 *.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-error.log*
 
-# OS files
-.DS_Store
-Thumbs.db
-
-# Markdown files
-guidelines/
-guidelines/guidelines.md
+# ==================================================
+# Docs Markdown files
+# ==================================================
+docs/guidelines/
+docs/guidelines/guidelines.md
+docs/FRONTEND_API_WIRING_STEPS.md
+docs/GIT_GITHUB_GUIDELINES.md
+docs/SAAS_BACKEND_IMPLEMENTATION_GUIDE.md
 ATTRIBUTIONS.md
 CHANGELOG.md
 CONTRIBUTING.md
-FRONTEND_API_WIRING_STEPS.md
-GIT_GITHUB_GUIDELINES.md
-SAAS_BACKEND_IMPLEMENTATION_GUIDE.md
 
-# Ignore Supabase local files
+# ==================================================
+# Coverage
+# ==================================================
+.coverage
+coverage/
+htmlcov/
+
+# ==================================================
+# Supabase
+# ==================================================
 supabase/.temp/
 supabase/.branches/
 
 # Ignore package lock if needed
 # package-lock.json
 
-# Ignore frontend env
-src/.env
-
-# Ignore database files
+# ==================================================
+# Database
+# ==================================================
 *.sqlite3
 
 # Ignore Vite config if needed
-vite.config.ts
+#vite.config.ts
