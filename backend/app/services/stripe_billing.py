@@ -215,7 +215,7 @@ def _line_item_for_plan(plan: str, custom_months: int | None) -> dict[str, Any]:
         interval, interval_count, name = "month", 12, "Annual plan"
     else:
         n = custom_months or 6
-        n = max(1, min(n, 60))
+        n = max(1, min(n, 36))
         interval, interval_count, name = "month", n, f"Custom {n}-month plan"
 
     return {

@@ -47,6 +47,7 @@ def stripe_create_checkout(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
+    
     if body.plan not in _VALID_PLANS:
         res.status_code = status.HTTP_400_BAD_REQUEST
         return {

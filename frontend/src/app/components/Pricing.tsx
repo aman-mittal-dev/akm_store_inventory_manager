@@ -211,14 +211,12 @@ export function Pricing() {
                 </div>
 
                 <p className="text-sm text-gray-500">
-
-                  {`${formatINR(
-                    Math.round(
-                      plan.price /
-                      (plan.id === 'quarterly' ? 3 : 12)
-                    )
-                  )}/month`}
-
+                  {(plan.id === "quarterly" || plan.id === "annual") &&
+                    `${formatINR(
+                      Math.round(
+                        plan.price / (plan.id === "quarterly" ? 3 : 12)
+                      )
+                    )}/month`}
                 </p>
 
               </div>
