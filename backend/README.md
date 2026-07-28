@@ -1,61 +1,110 @@
 # FastAPI Backend (PostgreSQL)
 
-This folder contains a backend service separated from the frontend.
+Backend for the Inventory Management System (`backend/`, not `backend-fastapi/`).
 
 ## 1) Setup
 
-1. `cd backend-fastapi`
+1. `cd backend`
 2. `python -m venv .venv`
 3. Windows: `.venv\Scripts\activate`
 4. `pip install -r requirements.txt`
-5. Copy `.env.example` and create a `.env` file
+5. Copy `.env.example` (if present) and create a `.env` file
 6. Create a PostgreSQL database named: `inventory_db`
+
+### Important env vars
+
+| Variable | Purpose |
+|----------|---------|
+| `DATABASE_URL` | PostgreSQL connection string |
+| `JWT_SECRET_KEY` | Signs access JWTs |
+| `JWT_ACCESS_TOKEN_EXPIRE_MINUTES` | Access token TTL (default **15**) |
+| `JWT_REFRESH_TOKEN_EXPIRE_DAYS` | Refresh token TTL (default **30**) |
+| `GOOGLE_CLIENT_ID` | Google Sign-In (same as frontend `VITE_GOOGLE_CLIENT_ID`) |
+| `STRIPE_*` / `FRONTEND_BASE_URL` | Subscriptions (Checkout + portal + webhooks) |
 
 ## 2) Run
 
-`uvicorn app.main:app --reload --port 8000`
+```bash
+uvicorn app.main:app --reload --port 8000
+```
 
-API documentation:
-- `http://localhost:8000/docs`
-- Health check: `http://localhost:8000/health`
+- API docs: http://localhost:8000/docs  
+- Health: http://localhost:8000/health  
 
-## 3) Important Endpoints
+## 3) Folder structure
 
-- `POST /api/v1/auth/signup`
-- `POST /api/v1/auth/login`
-- `POST /api/v1/auth/google` — Sign in with Google (JSON body: `idToken`)
-- `GET /api/v1/auth/me`
-- `GET /api/v1/items`
-- `POST /api/v1/items`
-- `POST /api/v1/items/images/upload` — multipart field `file` (JPEG/PNG/WebP, max 5 MB); returns `{ url }` for `imageUrl` on items (requires AWS S3 environment variables)
-- `PATCH /api/v1/items/{item_id}`
-- `DELETE /api/v1/items/{item_id}`
-- `GET /api/v1/transactions`
-- `POST /api/v1/transactions/incoming`
-- `POST /api/v1/transactions/outgoing`
+```
+backend/app/
+├── api/
+│   ├── deps.py              # Bearer JWT → current user
+│   └── routes/              # auth, payments, items, transactions, bills, …
+├── core/
+│   ├── config.py
+│   └── security.py          # password hash, access JWT, refresh token helpers
+├── db/
+│   ├── session.py
+│   └── schema_patches.py    # startup ALTERs + refresh_tokens table
+├── models/
+│   ├── user.py
+│   ├── refresh_token.py     # hashed refresh tokens
+│   └── …
+├── schemas/
+└── services/
+    ├── token_service.py     # issue / rotate / revoke token pairs
+    ├── user_payload.py      # serialize user + subscription for API
+    ├── google_auth.py
+    └── stripe_billing.py
+```
+
+## 4) Auth endpoints
+
+| Method | Path | Notes |
+|--------|------|--------|
+| `POST` | `/api/v1/auth/signup` | Returns `access_token`, `refresh_token`, `user` |
+| `POST` | `/api/v1/auth/login` | Same token pair (password accounts) |
+| `POST` | `/api/v1/auth/google` | Body: `{ "idToken": "…" }` → same token pair |
+| `POST` | `/api/v1/auth/refresh` | Body: `{ "refresh_token": "…" }` → rotated pair |
+| `POST` | `/api/v1/auth/logout` | Body: `{ "refresh_token": "…" }` → revoke |
+| `GET` | `/api/v1/auth/me` | Bearer access token → `{ user }` (includes Stripe subscription when present) |
+
+Refresh tokens are **opaque**, stored as **SHA-256 hashes** in `refresh_tokens`, and **rotated** on each refresh.
+
+## 5) Payments (Stripe)
+
+| Method | Path | Notes |
+|--------|------|--------|
+| `GET` | `/api/v1/payments/stripe/public-config` | Publishable key |
+| `POST` | `/api/v1/payments/stripe/create-checkout-session` | Start Checkout |
+| `POST` | `/api/v1/payments/stripe/verify-checkout-session` | Syncs Stripe → user; returns `{ ok, user }` |
+| `POST` | `/api/v1/payments/stripe/billing-portal` | Customer portal URL |
+| `POST` | `/api/v1/payments/stripe/webhook` | Stripe webhooks |
+
+## 6) Other important endpoints
+
+- `GET/POST/PATCH/DELETE /api/v1/items` (+ image upload)
+- `GET/POST /api/v1/transactions` (incoming / outgoing)
 - `POST /api/v1/bills/print-records`
-- `POST /api/v1/bills/{bill_number}/deliver` — queue email (SendGrid or SMTP) or WhatsApp (Twilio or Meta); optional **Send later** with `scheduledAt`
-- `GET /api/v1/bills/{bill_number}/deliveries` — dispatch log (each send and resend)
-- `POST /api/v1/bills/{bill_number}/deliver/{delivery_id}/retry` — retry a failed delivery
-- `GET /api/v1/public/bill-pdf/{token}` — unauthenticated PDF (temporary link for Twilio MediaUrl only)
+- `POST/GET /api/v1/bills/{bill_number}/deliver(y|ies)` (+ retry)
+- `GET /api/v1/public/bill-pdf/{token}` — temporary PDF URL for Twilio
 
-## 4) Notes
+## 7) Schema notes
 
-- This scaffold uses `Base.metadata.create_all(...)` for quick setup.
-- **Google Sign-In**: set `GOOGLE_CLIENT_ID` to your OAuth **Web client** ID (same as frontend `VITE_GOOGLE_CLIENT_ID`).
+On startup, `Base.metadata.create_all` runs, then `schema_patches`:
 
-On startup, the API automatically applies a small PostgreSQL patch:
-- Adds `users.google_sub`
-- Makes `password_hash` nullable
-- Creates a unique index on `google_sub`
+- `users.google_sub`, nullable `password_hash`, Stripe subscription columns
+- `refresh_tokens` table (id, user_id, token_hash, expires_at, revoked_at)
 
-If the automatic patch fails, run these SQL commands manually:
+If patches fail, create the refresh table manually:
 
 ```sql
-ALTER TABLE users ADD COLUMN google_sub VARCHAR(255);
-
-ALTER TABLE users ALTER COLUMN password_hash DROP NOT NULL;
-
-CREATE UNIQUE INDEX IF NOT EXISTS ix_users_google_sub_unique
-ON users (google_sub)
-WHERE google_sub IS NOT NULL;
+CREATE TABLE refresh_tokens (
+  id UUID PRIMARY KEY,
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  token_hash VARCHAR(64) NOT NULL,
+  expires_at TIMESTAMPTZ NOT NULL,
+  revoked_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+CREATE UNIQUE INDEX ix_refresh_tokens_token_hash ON refresh_tokens (token_hash);
+CREATE INDEX ix_refresh_tokens_user_id ON refresh_tokens (user_id);
+```

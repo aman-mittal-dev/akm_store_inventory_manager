@@ -8,6 +8,7 @@ import { ArrowLeft, CreditCard, Loader2, Shield } from 'lucide-react';
 import { formatINR } from '../utils/currency';
 import { SubscriptionPlan } from '../types';
 import { toast } from 'sonner';
+import { AuthAppHeader } from './AuthAppHeader';
 
 export function Checkout() {
   const navigate = useNavigate();
@@ -161,13 +162,16 @@ export function Checkout() {
   const totalWithGst = Math.round(planDetails.price * 1.18);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 py-12 px-4">
-      <div className="container mx-auto max-w-3xl">
-        <Button variant="ghost" onClick={() => navigate('/pricing')} className="mb-6">
-          <ArrowLeft className="w-4 h-4 mr-2" />
-          Back to Pricing
-        </Button>
-
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
+      <AuthAppHeader
+        leftSlot={
+          <Button variant="ghost" size="sm" onClick={() => navigate('/pricing')} className="mr-1">
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back to Pricing
+          </Button>
+        }
+      />
+      <div className="container mx-auto max-w-3xl py-12 px-4">
         <Card className="p-8">
           <div className="flex items-center justify-between mb-6">
             <h1 className="text-2xl font-bold text-gray-900">Checkout</h1>

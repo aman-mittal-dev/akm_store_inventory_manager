@@ -124,7 +124,16 @@ def list_transactions(res: Response, db: Session = Depends(get_db), current_user
 @router.post("/incoming", response_model=ApiResponse)
 def create_incoming(res: Response, payload: IncomingTransactionCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     try:
+        transaction_items = []
+        
         for entry in payload.items:
+            entry_data = entry.model_dump(mode="json")
+            transaction_items.append(entry_data)
+
+    # Custom/manual item है
+            if entry.itemId is None:
+                continue
+
             item = db.query(Item).filter(Item.id == entry.itemId, Item.owner_id == current_user.id).first()
             if item:
                 item.current_stock += entry.quantity
@@ -143,7 +152,7 @@ def create_incoming(res: Response, payload: IncomingTransactionCreate, db: Sessi
             total_amount=payload.totalCost,
             total_profit=None,
             items_json=_build_items_json(
-                items=[item.model_dump() for item in payload.items],
+                items=[item.model_dump(mode="json") for item in payload.items],
                 previous_outstanding_carried=payload.previousOutstandingCarried or 0,
                 payment_history=payload.paymentHistory,
                 paid_amount=payload.paidAmount,
@@ -163,6 +172,7 @@ def create_incoming(res: Response, payload: IncomingTransactionCreate, db: Sessi
     
     except Exception as e:
         res.status_code = status.HTTP_400_BAD_REQUEST
+        print(f"Error creating incoming transaction: {e}")
         return {
             "data": None,
             "message": "An error occurred while creating the transaction",

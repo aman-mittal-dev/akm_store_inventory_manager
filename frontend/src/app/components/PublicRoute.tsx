@@ -1,9 +1,9 @@
 import { Navigate } from 'react-router';
-import { useAuth } from '../context/AuthContext';
+import { useAuth, resolvePostAuthPath } from '../context/AuthContext';
 import { Loader2 } from 'lucide-react';
 
 export function PublicRoute({ children }: { children: React.ReactNode }) {
-  const { user, isLoading } = useAuth();
+  const { user, isLoading, hasActiveSubscription } = useAuth();
 
   if (isLoading) {
     return (
@@ -17,7 +17,7 @@ export function PublicRoute({ children }: { children: React.ReactNode }) {
   }
 
   if (user) {
-    return <Navigate to="/" replace />;
+    return <Navigate to={resolvePostAuthPath(hasActiveSubscription)} replace />;
   }
 
   return <>{children}</>;

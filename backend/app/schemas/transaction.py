@@ -1,15 +1,28 @@
 from datetime import datetime
 from typing import Literal, Any
-from pydantic import BaseModel
-
+from pydantic import BaseModel, Field, field_validator
+from uuid import UUID
 
 class TransactionItemIn(BaseModel):
-    itemId: str
+    itemId: UUID | None = None
     itemName: str
     sku: str
     quantity: int
     pricePerUnit: float
     totalPrice: float
+
+    @field_validator("itemId", mode="before")
+    @classmethod
+    def validate_item_id(cls, value):
+        # Custom/manual item को existing database item नहीं माना जाएगा
+        if value is None or value == "":
+            return None
+
+        if isinstance(value, str) and value.startswith("custom-"):
+            return None
+
+        # Valid UUID string होने पर Pydantic इसे UUID में बदल देगा
+        return value
 
 
 class PaymentRecordIn(BaseModel):

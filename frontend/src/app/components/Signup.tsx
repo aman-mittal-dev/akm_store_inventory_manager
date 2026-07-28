@@ -35,7 +35,7 @@ export function Signup() {
     setIsLoading(false);
 
     if (result.success) {
-      navigate('/');
+      navigate(result.hasActiveAccess ? '/' : '/pricing');
     }
   };
 
@@ -178,7 +178,7 @@ export function Signup() {
               const result = await loginWithGoogle(credential);
               setIsLoading(false);
               if (result.success) {
-                navigate('/');
+                navigate(result.hasActiveAccess ? '/' : '/pricing');
               }
             }}
             onError={() => {

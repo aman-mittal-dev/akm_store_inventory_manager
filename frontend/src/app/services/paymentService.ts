@@ -1,3 +1,4 @@
+import { ApiUser } from "./authService";
 import { apiFetch } from "../lib/api";
 
 export async function createStripeCheckoutSession(body: {
@@ -18,7 +19,7 @@ export async function createStripeBillingPortalSession() {
 }
 
 export async function verifyStripeCheckoutSession(session_id: string) {
-  return apiFetch<{ ok: boolean }>("/payments/stripe/verify-checkout-session", {
+  return apiFetch<{ ok: boolean; user: ApiUser }>("/payments/stripe/verify-checkout-session", {
     method: "POST",
     body: JSON.stringify({ session_id }),
   });

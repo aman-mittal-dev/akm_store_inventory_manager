@@ -13,6 +13,7 @@ from app.db.session import get_db
 from app.models.user import User
 from app.schemas.auth import ApiResponse
 from app.services import stripe_billing
+from app.services.user_payload import serialize_user
 
 logger = logging.getLogger(__name__)
 
@@ -123,6 +124,7 @@ def stripe_verify_session(
         stripe_billing.ensure_stripe_configured()
         stripe_billing.verify_checkout_session_for_user(db, user, body.session_id.strip())
         db.commit()
+        db.refresh(user)
     except PermissionError as exc:
         db.rollback()
         res.status_code = status.HTTP_403_FORBIDDEN
@@ -146,7 +148,11 @@ def stripe_verify_session(
         }
 
     res.status_code = status.HTTP_200_OK
-    return {"data": {"ok": True}, "message": "Subscription updated", "status": status.HTTP_200_OK}
+    return {
+        "data": {"ok": True, "user": serialize_user(user)},
+        "message": "Subscription updated",
+        "status": status.HTTP_200_OK,
+    }
 
 
 @router.post("/stripe/webhook")

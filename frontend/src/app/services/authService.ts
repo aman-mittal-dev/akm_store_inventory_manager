@@ -1,4 +1,4 @@
-import { apiFetch } from "../lib/api";
+import { apiFetch, clearAuthTokens, getRefreshToken } from "../lib/api";
 
 export interface ApiSubscription {
   status: string;
@@ -21,6 +21,8 @@ export interface ApiUser {
 
 export interface AuthSuccessData {
   access_token: string;
+  refresh_token: string;
+  token_type?: string;
   user: ApiUser;
 }
 
@@ -43,6 +45,31 @@ export function googleAuthApi(idToken: string) {
     method: "POST",
     body: JSON.stringify({ idToken }),
   });
+}
+
+export function refreshTokensApi(refreshToken: string) {
+  return apiFetch<AuthSuccessData>("/auth/refresh", {
+    method: "POST",
+    body: JSON.stringify({ refresh_token: refreshToken }),
+  });
+}
+
+export async function logoutApi(): Promise<void> {
+  const refreshToken = getRefreshToken();
+  if (!refreshToken) {
+    clearAuthTokens();
+    return;
+  }
+  try {
+    await apiFetch<null>("/auth/logout", {
+      method: "POST",
+      body: JSON.stringify({ refresh_token: refreshToken }),
+    });
+  } catch {
+    /* best-effort revoke */
+  } finally {
+    clearAuthTokens();
+  }
 }
 
 export async function meApi(): Promise<ApiUser> {

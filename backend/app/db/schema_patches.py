@@ -80,6 +80,35 @@ def apply_startup_schema_patches(engine: Engine) -> None:
             if "subscription_custom_months" not in cols:
                 conn.execute(text("ALTER TABLE users ADD COLUMN subscription_custom_months INTEGER"))
                 logger.info("Added column users.subscription_custom_months")
+
+            if not insp.has_table("refresh_tokens"):
+                conn.execute(
+                    text(
+                        """
+                        CREATE TABLE refresh_tokens (
+                            id UUID PRIMARY KEY,
+                            user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                            token_hash VARCHAR(64) NOT NULL,
+                            expires_at TIMESTAMPTZ NOT NULL,
+                            revoked_at TIMESTAMPTZ,
+                            created_at TIMESTAMPTZ DEFAULT now()
+                        )
+                        """
+                    )
+                )
+                conn.execute(
+                    text(
+                        "CREATE UNIQUE INDEX IF NOT EXISTS ix_refresh_tokens_token_hash "
+                        "ON refresh_tokens (token_hash)"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "CREATE INDEX IF NOT EXISTS ix_refresh_tokens_user_id "
+                        "ON refresh_tokens (user_id)"
+                    )
+                )
+                logger.info("Created table refresh_tokens")
     except Exception:
         logger.exception(
             "Could not apply users OAuth schema patches; run SQL manually (see backend README)"

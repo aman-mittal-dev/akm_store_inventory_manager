@@ -7,6 +7,8 @@ import { Badge } from './ui/badge';
 import { Check, Sparkles, ArrowLeft } from 'lucide-react';
 import { formatINR } from '../utils/currency';
 import { PricingPlan } from '../types';
+import { toast } from 'sonner';
+import { AuthAppHeader } from './AuthAppHeader';
 
 const MONTHLY_PRICE = 199;
 
@@ -62,7 +64,7 @@ const pricingPlans: PricingPlan[] = [
 export function Pricing() {
 
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, hasActiveSubscription, getDashboardPath } = useAuth();
 
   const [customMonths, setCustomMonths] = useState(6);
 
@@ -74,6 +76,16 @@ export function Pricing() {
       navigate(`/checkout?plan=${planId}`);
     }
 
+  };
+
+  const handleBackToDashboard = () => {
+    if (hasActiveSubscription) {
+      navigate(getDashboardPath());
+      return;
+    }
+    toast.message('Subscribe to unlock the dashboard', {
+      description: 'Choose a plan below, or open Account from your profile menu.',
+    });
   };
 
   // Discount Logic
@@ -127,23 +139,26 @@ export function Pricing() {
 
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
 
+      {user && (
+        <AuthAppHeader
+          leftSlot={
+            hasActiveSubscription ? (
+              <Button variant="ghost" size="sm" onClick={handleBackToDashboard} className="mr-1">
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Back to Dashboard
+              </Button>
+            ) : null
+          }
+        />
+      )}
+
       <div className="container mx-auto px-4 py-12">
 
-        {/* Back Button */}
-        {user && (
-
-          <Button
-            variant="ghost"
-            onClick={() => navigate('/')}
-            className="mb-6"
-          >
-
-            <ArrowLeft className="w-4 h-4 mr-2" />
-
-            Back to Dashboard
-
-          </Button>
-
+        {!hasActiveSubscription && user && (
+          <div className="mb-8 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            Your free trial or subscription is not active. Choose a plan to open the dashboard.
+            Use the profile menu (top right) for Account Settings or Sign out.
+          </div>
         )}
 
         {/* Header */}

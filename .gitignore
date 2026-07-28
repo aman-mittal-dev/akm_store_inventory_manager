@@ -64,6 +64,9 @@ frontend/.env
 frontend/.env.*
 frontend/.env.local
 frontend/.env.*.local
+frontend/ATTRIBUTIONS.md
+frontend/supabase
+frontend/guidelines
 
 # ==================================================
 # CONFIG files

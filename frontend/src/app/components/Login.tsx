@@ -26,7 +26,7 @@ export function Login() {
     setIsLoading(false);
 
     if (result.success) {
-      navigate('/');
+      navigate(result.hasActiveAccess ? '/' : '/pricing');
     }
   };
 
@@ -134,7 +134,7 @@ export function Login() {
               const result = await loginWithGoogle(credential);
               setIsLoading(false);
               if (result.success) {
-                navigate('/');
+                navigate(result.hasActiveAccess ? '/' : '/pricing');
               }
             }}
             onError={() => {

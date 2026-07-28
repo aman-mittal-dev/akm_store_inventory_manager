@@ -1,61 +1,86 @@
+# Inventory Management System
 
+Full-stack inventory management app: **React + Vite** frontend and **FastAPI + PostgreSQL** backend.
 
-# Inventory Management System (Frontend)
+## Repository layout
 
-Modern inventory management frontend built with React + Vite.
-
-This repository currently contains the frontend application. It can be used as:
-- Standalone demo (local state)
-- Production SaaS frontend connected to a Python backend (FastAPI or Django)
+```
+Inventory Management System/
+├── frontend/                 # React (Vite) SPA
+│   └── src/app/
+│       ├── components/       # Pages + UI (Layout, Login, Pricing, …)
+│       ├── context/          # AuthContext, InventoryContext
+│       ├── lib/              # API client (access + refresh tokens)
+│       ├── services/         # authService, paymentService, …
+│       ├── utils/
+│       └── routes.tsx
+├── backend/                  # FastAPI API (not backend-fastapi/)
+│   └── app/
+│       ├── api/routes/       # auth, items, payments, bills, …
+│       ├── core/             # config, security (JWT)
+│       ├── db/               # session, schema_patches
+│       ├── models/           # User, RefreshToken, Item, …
+│       ├── schemas/
+│       └── services/         # token_service, stripe_billing, google_auth, …
+├── docs/                     # Extra docs (optional)
+├── README.md
+└── CHANGELOG.md
+```
 
 ## Recent features
 
-- **Bill sharing** (with FastAPI backend): on each bill, use the **email** and **WhatsApp** icon buttons to send the invoice PDF. The server picks SendGrid vs SMTP/Brevo and Meta vs Twilio from `backend-fastapi/.env` (no provider dropdowns in the UI). Optional **Schedule for later** in the send dialog; send history still appears on the printed bill.
-- **Parties hub** (`/parties`): see which **customers owe you** (receivable) and which **suppliers you owe** (payable), based on pending amounts on recorded bills.
-- **Party drill-down**: `/parties/customer/...` or `/parties/supplier/...` shows **all invoices** for that identity and lets you edit **extra profile fields** (email, GST, address, notes) saved in-browser until backend party endpoints exist.
-- **Roll prior balance into new bill**: On **Record Sale** and **Purchase Stock**, after you enter a customer/supplier that already has unpaid history, you can **add prior outstanding** onto the **current invoice total** (matching is by **normalized name + phone digits** — same person must use consistent contact fields).
-  - Persisted server-side inside each transaction JSON as **`previousOutstandingCarried`** (`backend-fastapi`).
-
-Details of API fields and versioning notes live in **`CHANGELOG.md`**.
+- **Access + refresh tokens** for email/password and Google sign-in (rotated refresh tokens stored hashed in DB).
+- **Post-login routing**: active paid plan or free **14-day trial** → dashboard (`/`); otherwise → `/pricing`.
+- **User profile menu** on the main app shell and on pricing / account / checkout pages.
+- **Stripe subscriptions**: checkout, verify session (returns updated user), billing portal, webhooks.
+- **Bill sharing**, **Parties hub**, and prior outstanding on new invoices (see `CHANGELOG.md`).
 
 ## Tech stack
 
-- React 18
-- Vite 6
-- React Router
-- Tailwind CSS
+| Layer | Stack |
+|--------|--------|
+| Frontend | React 18, Vite 6, React Router, Tailwind CSS |
+| Backend | FastAPI, SQLAlchemy, PostgreSQL, Stripe, Google ID token verify |
 
-## Quick start
+## Quick start — frontend
 
-1. Install dependencies:
-   - `npm install`
-2. Create env file:
-   - Copy `.env.example` to `.env`
-3. Run dev server:
-   - `npm run dev`
+```bash
+cd frontend
+npm install
+# Copy .env.example → .env (set VITE_API_BASE_URL, VITE_GOOGLE_CLIENT_ID)
+npm run dev
+```
+
+## Quick start — backend
+
+```bash
+cd backend
+python -m venv .venv
+# Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+# Copy .env.example → .env (JWT, DB, Stripe, Google, …)
+uvicorn app.main:app --reload --port 8000
+```
+
+- API docs: http://localhost:8000/docs  
+- Health: http://localhost:8000/health  
+
+## Auth & subscription behavior
+
+| Event | Result |
+|--------|--------|
+| Login / Signup / Google | Issues `access_token` + `refresh_token` |
+| Access expired | Frontend calls `POST /api/v1/auth/refresh` and retries |
+| Logout | `POST /api/v1/auth/logout` revokes refresh token |
+| Active sub or trial | Dashboard + full Layout (profile menu) |
+| Expired / no access | `/pricing` (profile menu still available) |
+| After Stripe checkout | Verify returns user + subscription; redirect to dashboard |
 
 ## Production notes
 
-- Do not store secrets in frontend env files (`VITE_*` variables are public in browser).
-- Use backend APIs for:
-  - Authentication
-  - Inventory CRUD
-  - Transactions
-  - Subscription and billing logic
-- Keep DB, payment keys, JWT secrets, SMTP credentials only in backend env.
+- Do not put secrets in frontend `VITE_*` env vars.
+- Keep JWT secret, DB URL, Stripe keys, SMTP/WhatsApp credentials in **backend** `.env` only.
 
-## Backend integration guide
+## Contributing
 
-Detailed step-by-step SaaS + backend plan is available in:
-- `SAAS_BACKEND_IMPLEMENTATION_GUIDE.md`
-- `FRONTEND_API_WIRING_STEPS.md`
-
-## New backend folder
-
-FastAPI + PostgreSQL scaffold is available in:
-- `backend-fastapi/`
-
-## Contributing & documentation policy
-
-Whenever you add or change a feature (even small), please update **`README.md`**, **`CHANGELOG.md`**, and follow the checklist in **`GIT_GITHUB_GUIDELINES.md`** (documentation section).
-# akm_store_inventory_manager
+When you change behavior or UI, update **`README.md`** and **`CHANGELOG.md`**.

@@ -1,46 +1,31 @@
-from datetime import timedelta
-from fastapi import APIRouter, Depends, status, Response
+from fastapi import APIRouter, Depends, Response, status
 from sqlalchemy.orm import Session
+
 from app.api.deps import get_current_user
-from app.core.config import settings
-from app.core.security import create_access_token, get_password_hash, verify_password
+from app.core.security import get_password_hash, verify_password
 from app.db.session import get_db
 from app.models.user import User
 from app.schemas.auth import (
     ApiResponse,
     GoogleAuthRequest,
     LoginRequest,
+    LogoutRequest,
+    RefreshTokenRequest,
     SignupRequest,
-    SubscriptionOut,
-    UserOut,
 )
 from app.services.google_auth import verify_google_id_token
+from app.services.token_service import issue_token_pair, revoke_refresh_token, rotate_refresh_token
+from app.services.user_payload import serialize_user
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
-def _subscription_out(user: User) -> SubscriptionOut | None:
-    if not user.stripe_subscription_id:
-        return None
-    return SubscriptionOut(
-        status=user.subscription_status or "active",
-        plan=(user.subscription_plan or "monthly"),
-        start_date=user.subscription_start_at,
-        end_date=user.subscription_current_period_end,
-        amount_inr=user.subscription_amount_inr,
-        custom_duration_months=user.subscription_custom_months,
-        cancel_at_period_end=bool(user.subscription_cancel_at_period_end),
-        stripe_subscription_id=user.stripe_subscription_id,
-    )
 
-
-def _serialize_user(user: User) -> dict:
-    return UserOut(
-        id=str(user.id),
-        email=user.email,
-        name=user.full_name,
-        created_at=user.created_at,
-        subscription=_subscription_out(user),
-    ).model_dump(mode="json")
+def _auth_success_payload(db: Session, user: User) -> dict:
+    tokens = issue_token_pair(db, user)
+    return {
+        **tokens,
+        "user": serialize_user(user),
+    }
 
 
 @router.post("/signup", response_model=ApiResponse)
@@ -52,30 +37,30 @@ def signup(res: Response, payload: SignupRequest, db: Session = Depends(get_db))
             return {
                 "data": None,
                 "message": "Email already registered",
-                "status": status.HTTP_400_BAD_REQUEST
+                "status": status.HTTP_400_BAD_REQUEST,
             }
 
-        user = User(email=payload.email, full_name=payload.name, password_hash=get_password_hash(payload.password))
+        user = User(
+            email=payload.email,
+            full_name=payload.name,
+            password_hash=get_password_hash(payload.password),
+        )
         db.add(user)
         db.commit()
         db.refresh(user)
 
-        token = create_access_token(subject=str(user.id),expires_delta=timedelta(minutes=settings.JWT_ACCESS_TOKEN_EXPIRE_MINUTES))
         res.status_code = status.HTTP_200_OK
         return {
-            "data": {
-                "access_token": token,
-                "user": _serialize_user(user)
-            },
+            "data": _auth_success_payload(db, user),
             "message": "Signup successful",
-            "status": status.HTTP_201_CREATED
+            "status": status.HTTP_201_CREATED,
         }
     except Exception as e:
         res.status_code = status.HTTP_400_BAD_REQUEST
         return {
             "data": None,
             "message": f"An error occurred during signup: {str(e)}",
-            "status": status.HTTP_400_BAD_REQUEST
+            "status": status.HTTP_400_BAD_REQUEST,
         }
 
 
@@ -105,22 +90,18 @@ def login(res: Response, payload: LoginRequest, db: Session = Depends(get_db)):
                 "status": status.HTTP_400_BAD_REQUEST,
             }
 
-        token = create_access_token(subject=str(user.id), expires_delta=timedelta(minutes=settings.JWT_ACCESS_TOKEN_EXPIRE_MINUTES))
         res.status_code = status.HTTP_200_OK
         return {
-            "data": {
-                "access_token": token,
-                "user": _serialize_user(user)
-            },
+            "data": _auth_success_payload(db, user),
             "message": "Login successful",
-            "status": status.HTTP_200_OK
+            "status": status.HTTP_200_OK,
         }
     except Exception as e:
         res.status_code = status.HTTP_400_BAD_REQUEST
         return {
             "data": None,
             "message": "An error occurred during login " + str(e),
-            "status": status.HTTP_400_BAD_REQUEST
+            "status": status.HTTP_400_BAD_REQUEST,
         }
 
 
@@ -151,13 +132,9 @@ def login_with_google(res: Response, payload: GoogleAuthRequest, db: Session = D
 
         user = db.query(User).filter(User.google_sub == sub).first()
         if user:
-            token = create_access_token(
-                subject=str(user.id),
-                expires_delta=timedelta(minutes=settings.JWT_ACCESS_TOKEN_EXPIRE_MINUTES),
-            )
             res.status_code = status.HTTP_200_OK
             return {
-                "data": {"access_token": token, "user": _serialize_user(user)},
+                "data": _auth_success_payload(db, user),
                 "message": "Login successful",
                 "status": status.HTTP_200_OK,
             }
@@ -181,13 +158,9 @@ def login_with_google(res: Response, payload: GoogleAuthRequest, db: Session = D
             db.commit()
             db.refresh(user)
 
-        token = create_access_token(
-            subject=str(user.id),
-            expires_delta=timedelta(minutes=settings.JWT_ACCESS_TOKEN_EXPIRE_MINUTES),
-        )
         res.status_code = status.HTTP_200_OK
         return {
-            "data": {"access_token": token, "user": _serialize_user(user)},
+            "data": _auth_success_payload(db, user),
             "message": "Login successful",
             "status": status.HTTP_200_OK,
         }
@@ -200,19 +173,71 @@ def login_with_google(res: Response, payload: GoogleAuthRequest, db: Session = D
         }
 
 
+@router.post("/refresh", response_model=ApiResponse)
+def refresh_tokens(res: Response, payload: RefreshTokenRequest, db: Session = Depends(get_db)):
+    """Exchange a valid refresh token for a new access + refresh pair (rotation)."""
+    try:
+        result = rotate_refresh_token(db, payload.refresh_token)
+        if not result:
+            res.status_code = status.HTTP_401_UNAUTHORIZED
+            return {
+                "data": None,
+                "message": "Invalid or expired refresh token",
+                "status": status.HTTP_401_UNAUTHORIZED,
+            }
+
+        user, tokens = result
+        res.status_code = status.HTTP_200_OK
+        return {
+            "data": {
+                **tokens,
+                "user": serialize_user(user),
+            },
+            "message": "Token refreshed",
+            "status": status.HTTP_200_OK,
+        }
+    except Exception:
+        res.status_code = status.HTTP_400_BAD_REQUEST
+        return {
+            "data": None,
+            "message": "An error occurred while refreshing tokens",
+            "status": status.HTTP_400_BAD_REQUEST,
+        }
+
+
+@router.post("/logout", response_model=ApiResponse)
+def logout(res: Response, payload: LogoutRequest, db: Session = Depends(get_db)):
+    """Revoke the presented refresh token so it cannot be reused."""
+    try:
+        revoke_refresh_token(db, payload.refresh_token)
+        res.status_code = status.HTTP_200_OK
+        return {
+            "data": None,
+            "message": "Logged out",
+            "status": status.HTTP_200_OK,
+        }
+    except Exception:
+        res.status_code = status.HTTP_400_BAD_REQUEST
+        return {
+            "data": None,
+            "message": "An error occurred during logout",
+            "status": status.HTTP_400_BAD_REQUEST,
+        }
+
+
 @router.get("/me", response_model=ApiResponse)
 def me(res: Response, current_user: User = Depends(get_current_user)):
     try:
         res.status_code = status.HTTP_200_OK
         return {
-            "data": {"user": _serialize_user(current_user)},
+            "data": {"user": serialize_user(current_user)},
             "message": "Success",
-            "status": status.HTTP_200_OK
+            "status": status.HTTP_200_OK,
         }
-    except Exception as e:
+    except Exception:
         res.status_code = status.HTTP_400_BAD_REQUEST
         return {
             "data": None,
             "message": "An error occurred while fetching user details",
-            "status": status.HTTP_400_BAD_REQUEST
+            "status": status.HTTP_400_BAD_REQUEST,
         }

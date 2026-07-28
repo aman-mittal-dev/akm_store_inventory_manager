@@ -9,7 +9,15 @@ from app.core.config import settings
 from app.db.base import Base
 from app.db.schema_patches import apply_startup_schema_patches
 from app.db.session import SessionLocal, engine
-from app.models import BillDelivery, BillPdfPublicToken, Item, PrintedBill, StockTransaction, User  # noqa: F401
+from app.models import (  # noqa: F401
+    BillDelivery,
+    BillPdfPublicToken,
+    Item,
+    PrintedBill,
+    RefreshToken,
+    StockTransaction,
+    User,
+)
 from app.services.bill_delivery_dispatch import process_due_scheduled
 
 app = FastAPI(title=settings.APP_NAME, debug=settings.APP_DEBUG)

@@ -16,14 +16,34 @@ import {
 } from 'lucide-react';
 import { formatINR } from '../utils/currency';
 import { toast } from 'sonner';
+import { AuthAppHeader } from './AuthAppHeader';
 
 export function Account() {
   const navigate = useNavigate();
-  const { user, subscription, hasActiveSubscription, logout, cancelSubscription } = useAuth();
+  const {
+    user,
+    subscription,
+    hasActiveSubscription,
+    logout,
+    cancelSubscription,
+    getDashboardPath,
+    refreshUser,
+  } = useAuth();
 
   if (!user) {
     return <Navigate to="/login" replace />;
   }
+
+  const handleBackToDashboard = () => {
+    if (hasActiveSubscription) {
+      navigate(getDashboardPath());
+      return;
+    }
+    toast.message('Subscribe to unlock the dashboard', {
+      description: 'Go to Subscription from your profile menu to choose a plan.',
+    });
+    navigate('/pricing');
+  };
 
   const handleCancelSubscription = async () => {
     if (
@@ -90,22 +110,35 @@ export function Account() {
     : 0;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 py-12 px-4">
-      <div className="container mx-auto max-w-4xl">
-        {/* Back Button */}
-        <Button
-          variant="ghost"
-          onClick={() => navigate('/')}
-          className="mb-6"
-        >
-          <ArrowLeft className="w-4 h-4 mr-2" />
-          Back to Dashboard
-        </Button>
-
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
+      <AuthAppHeader
+        leftSlot={
+          <Button variant="ghost" size="sm" onClick={handleBackToDashboard} className="mr-1">
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            {hasActiveSubscription ? 'Back to Dashboard' : 'View Plans'}
+          </Button>
+        }
+      />
+      <div className="container mx-auto max-w-4xl py-12 px-4">
         {/* Page Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Account Settings</h1>
-          <p className="text-gray-600">Manage your account and subscription</p>
+        <div className="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">Account Settings</h1>
+            <p className="text-gray-600">Manage your account and subscription</p>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={async () => {
+              const ok = await refreshUser();
+              toast[ok ? 'success' : 'error'](
+                ok ? 'Account refreshed.' : 'Could not refresh account.'
+              );
+            }}
+          >
+            <RefreshCw className="w-4 h-4 mr-2" />
+            Refresh
+          </Button>
         </div>
 
         {/* Account Information */}

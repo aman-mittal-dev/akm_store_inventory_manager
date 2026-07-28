@@ -35,8 +35,24 @@ class UserOut(BaseModel):
 
 class TokenOut(BaseModel):
     access_token: str
+    refresh_token: str
     token_type: str = "bearer"
     user: UserOut
+
+
+class RefreshTokenRequest(BaseModel):
+    refresh_token: str = Field(
+        min_length=20,
+        validation_alias=AliasChoices("refresh_token", "refreshToken"),
+    )
+
+
+class LogoutRequest(BaseModel):
+    refresh_token: str = Field(
+        min_length=20,
+        validation_alias=AliasChoices("refresh_token", "refreshToken"),
+    )
+
 
 class ApiResponse(BaseModel):
     data: dict | None = None
