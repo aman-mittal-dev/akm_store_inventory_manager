@@ -13,7 +13,7 @@ export function Layout() {
     { path: '/incoming-stock', label: 'Purchase Stock', icon: ArrowDownToLine },
     { path: '/outgoing-stock', label: 'Record Sale', icon: ArrowUpFromLine },
     { path: '/transactions', label: 'Transaction History', icon: History },
-    { path: '/parties', label: 'Parties', icon: Users },
+    { path: '/parties', label: 'Customers & Suppliers', icon: Users },
     { path: '/analytics', label: 'Analytics & Reports', icon: BarChart3 },
     { path: '/settings', label: 'Store Settings', icon: Settings },
   ];

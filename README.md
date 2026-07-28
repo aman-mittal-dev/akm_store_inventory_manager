@@ -33,7 +33,7 @@ Inventory Management System/
 - **Post-login routing**: active paid plan or free **14-day trial** → dashboard (`/`); otherwise → `/pricing`.
 - **User profile menu** on the main app shell and on pricing / account / checkout pages.
 - **Stripe subscriptions**: checkout, verify session (returns updated user), billing portal, webhooks.
-- **Bill sharing**, **Parties hub**, and prior outstanding on new invoices (see `CHANGELOG.md`).
+- **Bill sharing**, **Customers & Suppliers hub**, and prior outstanding on new invoices (see `CHANGELOG.md`).
 
 ## Tech stack
 
