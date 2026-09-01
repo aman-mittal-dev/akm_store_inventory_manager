@@ -519,7 +519,7 @@ const pricingPlans: PricingPlan[] = [
   },
   {
     id: 'six_month',
-    name: '6 Months',
+    name: 'Half Yearly',
     duration: '6 Months',
     price: 4999,
     popular: true,

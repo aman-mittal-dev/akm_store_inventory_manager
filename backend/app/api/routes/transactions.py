@@ -8,6 +8,7 @@ from app.models.item import Item
 from app.models.transaction import StockTransaction
 from app.models.user import User
 from app.api.routes.items import _generate_unique_sku
+from app.services.party_balance import apply_carried_outstanding, party_outstanding_total
 from app.schemas.transaction import (
     IncomingTransactionCreate,
     OutgoingTransactionCreate,
@@ -154,6 +155,26 @@ def create_incoming(res: Response, payload: IncomingTransactionCreate, db: Sessi
 
             transaction_items.append(entry_data)
 
+        carried = round(float(payload.previousOutstandingCarried or 0), 2)
+        if carried > 0:
+            available = party_outstanding_total(
+                db,
+                current_user.id,
+                "incoming",
+                payload.supplierName,
+                payload.supplierContact,
+            )
+            if carried > available + 0.009:
+                res.status_code = status.HTTP_400_BAD_REQUEST
+                return {
+                    "data": None,
+                    "message": (
+                        f"Prior balance to carry ({carried}) exceeds outstanding "
+                        f"payable to this supplier ({available})"
+                    ),
+                    "status": status.HTTP_400_BAD_REQUEST,
+                }
+
         transaction = StockTransaction(
             owner_id=current_user.id,
             transaction_type="incoming",
@@ -176,6 +197,17 @@ def create_incoming(res: Response, payload: IncomingTransactionCreate, db: Sessi
             ),
         )
         db.add(transaction)
+        if carried > 0:
+            apply_carried_outstanding(
+                db,
+                current_user.id,
+                "incoming",
+                payload.supplierName,
+                payload.supplierContact,
+                carried,
+                payload.billNumber,
+                payload.date,
+            )
         db.commit()
         db.refresh(transaction)
 
@@ -230,6 +262,26 @@ def create_outgoing(res: Response, payload: OutgoingTransactionCreate, db: Sessi
             if item:
                 item.current_stock -= entry.quantity
 
+        carried = round(float(payload.previousOutstandingCarried or 0), 2)
+        if carried > 0:
+            available = party_outstanding_total(
+                db,
+                current_user.id,
+                "outgoing",
+                payload.customerName,
+                payload.customerContact,
+            )
+            if carried > available + 0.009:
+                res.status_code = status.HTTP_400_BAD_REQUEST
+                return {
+                    "data": None,
+                    "message": (
+                        f"Prior balance to carry ({carried}) exceeds outstanding "
+                        f"receivable from this customer ({available})"
+                    ),
+                    "status": status.HTTP_400_BAD_REQUEST,
+                }
+
         transaction = StockTransaction(
             owner_id=current_user.id,
             transaction_type="outgoing",
@@ -252,6 +304,17 @@ def create_outgoing(res: Response, payload: OutgoingTransactionCreate, db: Sessi
             ),
         )
         db.add(transaction)
+        if carried > 0:
+            apply_carried_outstanding(
+                db,
+                current_user.id,
+                "outgoing",
+                payload.customerName,
+                payload.customerContact,
+                carried,
+                payload.billNumber,
+                payload.date,
+            )
         db.commit()
         db.refresh(transaction)
 

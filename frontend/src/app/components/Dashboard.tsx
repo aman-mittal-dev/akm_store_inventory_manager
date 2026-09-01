@@ -6,6 +6,7 @@ import { Link, useNavigate } from 'react-router';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
 import { formatINR } from '../utils/currency';
+import { roundMoney } from '../utils/party';
 
 export function Dashboard() {
   const { items, incomingTransactions, outgoingTransactions } = useInventory();
@@ -26,15 +27,13 @@ export function Dashboard() {
   const lowStockItems = items.filter(item => item.currentStock <= item.lowStockThreshold);
 
   // Calculate pending receivables (customers owe us)
-  const totalReceivables = outgoingTransactions.reduce(
-    (sum, transaction) => sum + transaction.pendingAmount,
-    0
+  const totalReceivables = roundMoney(
+    outgoingTransactions.reduce((sum, transaction) => sum + transaction.pendingAmount, 0),
   );
 
   // Calculate pending payables (we owe vendors)
-  const totalPayables = incomingTransactions.reduce(
-    (sum, transaction) => sum + transaction.pendingAmount,
-    0
+  const totalPayables = roundMoney(
+    incomingTransactions.reduce((sum, transaction) => sum + transaction.pendingAmount, 0),
   );
 
   // Calculate trial days remaining

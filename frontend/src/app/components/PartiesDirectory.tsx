@@ -30,14 +30,10 @@ import {
   IncomingTransaction,
   OutgoingTransaction,
 } from "../types";
-
-function normaliseContact(contact?: string) {
-  if (!contact) return "";
-  return contact.replace(/\D/g, "").slice(-10);
-}
+import { normalizePartyKey } from "../utils/party";
 
 function partyKey(name: string, contact?: string) {
-  return `${name.trim().toLowerCase()}|${normaliseContact(contact)}`;
+  return normalizePartyKey(name, contact);
 }
 
 interface CustomerParty {
