@@ -7,6 +7,7 @@ from app.db.session import get_db
 from app.models.item import Item
 from app.models.transaction import StockTransaction
 from app.models.user import User
+from app.api.routes.items import _generate_unique_sku
 from app.schemas.transaction import (
     IncomingTransactionCreate,
     OutgoingTransactionCreate,
@@ -125,18 +126,33 @@ def list_transactions(res: Response, db: Session = Depends(get_db), current_user
 def create_incoming(res: Response, payload: IncomingTransactionCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     try:
         transaction_items = []
-        
+
         for entry in payload.items:
             entry_data = entry.model_dump(mode="json")
-            transaction_items.append(entry_data)
 
-    # Custom/manual item है
             if entry.itemId is None:
-                continue
+                sku_in = (entry.sku or "").strip()
+                sku = sku_in if sku_in else _generate_unique_sku(db, current_user.id)
 
-            item = db.query(Item).filter(Item.id == entry.itemId, Item.owner_id == current_user.id).first()
-            if item:
-                item.current_stock += entry.quantity
+                new_item = Item(
+                    owner_id=current_user.id,
+                    name=entry.itemName,
+                    sku=sku,
+                    category="General",
+                    purchase_price=entry.pricePerUnit,
+                    selling_price=entry.pricePerUnit,
+                    current_stock=entry.quantity,
+                    low_stock_threshold=10,
+                )
+                db.add(new_item)
+                db.flush()
+                entry_data["itemId"] = str(new_item.id)
+            else:
+                item = db.query(Item).filter(Item.id == entry.itemId, Item.owner_id == current_user.id).first()
+                if item:
+                    item.current_stock += entry.quantity
+
+            transaction_items.append(entry_data)
 
         transaction = StockTransaction(
             owner_id=current_user.id,
@@ -151,6 +167,82 @@ def create_incoming(res: Response, payload: IncomingTransactionCreate, db: Sessi
             pending_amount=payload.pendingAmount,
             total_amount=payload.totalCost,
             total_profit=None,
+            items_json=_build_items_json(
+                items=transaction_items,
+                previous_outstanding_carried=payload.previousOutstandingCarried or 0,
+                payment_history=payload.paymentHistory,
+                paid_amount=payload.paidAmount,
+                transaction_date=payload.date,
+            ),
+        )
+        db.add(transaction)
+        db.commit()
+        db.refresh(transaction)
+
+        res.status_code = status.HTTP_201_CREATED
+        return {
+            "data": _serialize(transaction), 
+            "message": "Transaction created successfully", 
+            "status": status.HTTP_201_CREATED
+        }
+    
+    except Exception as e:
+        db.rollback()
+        res.status_code = status.HTTP_400_BAD_REQUEST
+        print(f"Error creating incoming transaction: {e}")
+        return {
+            "data": None,
+            "message": "An error occurred while creating the transaction",
+            "status": status.HTTP_400_BAD_REQUEST
+        }
+
+
+@router.post("/outgoing", response_model=ApiResponse)
+def create_outgoing(res: Response, payload: OutgoingTransactionCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    try:
+        for entry in payload.items:
+            if entry.itemId is None:
+                res.status_code = status.HTTP_400_BAD_REQUEST
+                return {
+                    "data": None,
+                    "message": f"Item '{entry.itemName}' is not in inventory and cannot be sold",
+                    "status": status.HTTP_400_BAD_REQUEST,
+                }
+
+            item = db.query(Item).filter(Item.id == entry.itemId, Item.owner_id == current_user.id).first()
+            if not item:
+                res.status_code = status.HTTP_400_BAD_REQUEST
+                return {
+                    "data": None,
+                    "message": f"Item '{entry.itemName}' not found in inventory",
+                    "status": status.HTTP_400_BAD_REQUEST,
+                }
+            if item.current_stock < entry.quantity:
+                res.status_code = status.HTTP_400_BAD_REQUEST
+                return {
+                    "data": None,
+                    "message": f"Insufficient stock for '{entry.itemName}' (available: {item.current_stock})",
+                    "status": status.HTTP_400_BAD_REQUEST,
+                }
+
+        for entry in payload.items:
+            item = db.query(Item).filter(Item.id == entry.itemId, Item.owner_id == current_user.id).first()
+            if item:
+                item.current_stock -= entry.quantity
+
+        transaction = StockTransaction(
+            owner_id=current_user.id,
+            transaction_type="outgoing",
+            bill_number=payload.billNumber,
+            contact_name=payload.customerName,
+            contact_phone=payload.customerContact,
+            transaction_date=payload.date,
+            notes=payload.notes,
+            payment_status=payload.paymentStatus,
+            paid_amount=payload.paidAmount,
+            pending_amount=payload.pendingAmount,
+            total_amount=payload.totalRevenue,
+            total_profit=payload.totalProfit,
             items_json=_build_items_json(
                 items=[item.model_dump(mode="json") for item in payload.items],
                 previous_outstanding_carried=payload.previousOutstandingCarried or 0,
@@ -171,56 +263,7 @@ def create_incoming(res: Response, payload: IncomingTransactionCreate, db: Sessi
         }
     
     except Exception as e:
-        res.status_code = status.HTTP_400_BAD_REQUEST
-        print(f"Error creating incoming transaction: {e}")
-        return {
-            "data": None,
-            "message": "An error occurred while creating the transaction",
-            "status": status.HTTP_400_BAD_REQUEST
-        }
-
-
-@router.post("/outgoing", response_model=ApiResponse)
-def create_outgoing(res: Response, payload: OutgoingTransactionCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    try:
-        for entry in payload.items:
-            item = db.query(Item).filter(Item.id == entry.itemId, Item.owner_id == current_user.id).first()
-            if item:
-                item.current_stock -= entry.quantity
-
-        transaction = StockTransaction(
-            owner_id=current_user.id,
-            transaction_type="outgoing",
-            bill_number=payload.billNumber,
-            contact_name=payload.customerName,
-            contact_phone=payload.customerContact,
-            transaction_date=payload.date,
-            notes=payload.notes,
-            payment_status=payload.paymentStatus,
-            paid_amount=payload.paidAmount,
-            pending_amount=payload.pendingAmount,
-            total_amount=payload.totalRevenue,
-            total_profit=payload.totalProfit,
-            items_json=_build_items_json(
-                items=[item.model_dump() for item in payload.items],
-                previous_outstanding_carried=payload.previousOutstandingCarried or 0,
-                payment_history=payload.paymentHistory,
-                paid_amount=payload.paidAmount,
-                transaction_date=payload.date,
-            ),
-        )
-        db.add(transaction)
-        db.commit()
-        db.refresh(transaction)
-
-        res.status_code = status.HTTP_201_CREATED
-        return {
-            "data": _serialize(transaction), 
-            "message": "Transaction created successfully", 
-            "status": status.HTTP_201_CREATED
-        }
-    
-    except Exception as e:
+        db.rollback()
         res.status_code = status.HTTP_400_BAD_REQUEST
         return {
             "data": None,

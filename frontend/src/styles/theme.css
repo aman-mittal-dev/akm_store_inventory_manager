@@ -180,33 +180,131 @@
   }
 }
 
-/* Print styles - only print the bill content */
+/* Print styles — print the full bill without app chrome or clipping */
 @media print {
+  @page {
+    margin: 12mm;
+    size: auto;
+  }
+
+  html,
+  body {
+    width: 100% !important;
+    height: auto !important;
+    overflow: visible !important;
+    background: #ffffff !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .layout-shell,
+  .layout-main,
+  .layout-content {
+    display: block !important;
+    overflow: visible !important;
+    height: auto !important;
+    max-height: none !important;
+    min-height: 0 !important;
+  }
+
+  .layout-shell > .layout-header,
+  .layout-shell > .layout-nav,
+  nav,
+  header,
+  aside,
+  .sidebar {
+    display: none !important;
+  }
+
+  .layout-content {
+    max-width: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
   .print\:hidden {
     display: none !important;
   }
 
-  /* Hide navigation and other non-bill content */
-  nav,
-  header,
-  aside,
-  .sidebar,
-  footer:not(.bill-footer) {
-    display: none !important;
+  /* Print only the bill block; keep every child visible */
+  body * {
+    visibility: hidden;
   }
 
-  /* Ensure bill prints cleanly */
-  body {
-    background: white !important;
+  .bill-print-root,
+  .bill-print-root * {
+    visibility: visible;
   }
 
-  /* Remove shadows and borders for cleaner print */
+  .bill-print-root {
+    position: absolute;
+    left: 0;
+    top: 0;
+    overflow: visible !important;
+    break-inside: auto;
+  }
+
+  /* Full-page invoice */
+  .bill-print-root.bill-format-full {
+    width: 100%;
+  }
+
+  .bill-print-root.bill-format-full [data-slot="card"] {
+    box-shadow: none !important;
+    border: 1px solid #d1d5db !important;
+    max-width: none !important;
+    width: 100% !important;
+    overflow: visible !important;
+    break-inside: auto;
+  }
+
+  /* Narrow thermal/receipt-style layout */
+  .bill-print-root.bill-format-compact {
+    width: 80mm;
+    max-width: 80mm;
+    left: 50%;
+    transform: translateX(-50%);
+  }
+
+  .bill-print-root.bill-format-compact [data-slot="card"] {
+    box-shadow: none !important;
+    border: 1px solid #d1d5db !important;
+    max-width: 80mm !important;
+    width: 100% !important;
+    overflow: visible !important;
+    break-inside: avoid;
+    page-break-inside: avoid;
+    font-size: 11px;
+  }
+
+  .bill-print-root.bill-format-full .overflow-x-auto {
+    overflow: visible !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+  }
+
+  .bill-print-root.bill-format-full table {
+    width: 100% !important;
+    min-width: 0 !important;
+    table-layout: fixed;
+    break-inside: auto;
+  }
+
+  .bill-print-root.bill-format-full tr {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .bill-print-root.bill-format-full thead {
+    display: table-header-group;
+  }
+
   .print\:shadow-none {
     box-shadow: none !important;
   }
 
-  /* Optimize page breaks */
   .print\:break-inside-avoid {
     break-inside: avoid;
+    page-break-inside: avoid;
   }
 }

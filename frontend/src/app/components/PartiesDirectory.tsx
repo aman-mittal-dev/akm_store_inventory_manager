@@ -448,7 +448,7 @@ export function PartiesDirectory() {
                         totalPaid={c.totalPaid}
                         totalPending={c.totalPending}
                         bills={c.transactions.map((tx) => ({
-                          id: tx.id,
+                          id: tx.billNumber,
                           billNumber: tx.billNumber,
                           date: tx.date,
                           total: tx.totalRevenue,
@@ -496,7 +496,7 @@ export function PartiesDirectory() {
                         totalPaid={s.totalPaid}
                         totalPending={s.totalPending}
                         bills={s.transactions.map((tx) => ({
-                          id: tx.id,
+                          id: tx.billNumber,
                           billNumber: tx.billNumber,
                           date: tx.date,
                           total: tx.totalCost,

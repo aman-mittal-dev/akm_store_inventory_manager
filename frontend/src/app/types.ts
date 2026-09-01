@@ -95,8 +95,8 @@ export interface InventoryContextType {
   updateItem: (id: string, item: Partial<InventoryItem>) => Promise<InventoryItem>;
   deleteItem: (id: string) => Promise<void>;
   getItemById: (id: string) => InventoryItem | undefined;
-  addIncomingTransaction: (transaction: Omit<IncomingTransaction, 'id'>) => void;
-  addOutgoingTransaction: (transaction: Omit<OutgoingTransaction, 'id'>) => void;
+  addIncomingTransaction: (transaction: Omit<IncomingTransaction, 'id'>) => Promise<void>;
+  addOutgoingTransaction: (transaction: Omit<OutgoingTransaction, 'id'>) => Promise<void>;
   updateIncomingTransaction: (id: string, transaction: Partial<IncomingTransaction>) => void;
   updateOutgoingTransaction: (id: string, transaction: Partial<OutgoingTransaction>) => void;
   updateTransactionPayment: (

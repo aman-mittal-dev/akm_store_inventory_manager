@@ -12,9 +12,8 @@ import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
 import { listBillDeliveries, savePrintedBillApi, type BillDeliveryRow } from '../services/billService';
 import { generateAdHocSku } from '../utils/sku';
-import { humanizeApiError } from '../utils/apiErrors';
 import { BillShareActions } from './BillShareActions';
-import { toast } from 'sonner';
+import { prepareElementForCanvasCapture } from '../utils/html2canvasCompat';
 
 type InvoiceType = 'internal' | 'customer';
 type BillFormat = 'full' | 'compact';
@@ -24,10 +23,14 @@ export function ViewBill() {
   const navigate = useNavigate();
   const { outgoingTransactions, incomingTransactions, items, storeSettings, updateOutgoingTransaction, updateIncomingTransaction, updateTransactionPayment } = useInventory();
 
-  // Try to find in outgoing (sales) first
-  const outgoingTransaction = outgoingTransactions.find(t => t.billNumber === transactionId);
+  // Try to find in outgoing (sales) first — match by bill number or transaction id
+  const outgoingTransaction = outgoingTransactions.find(
+    (t) => t.billNumber === transactionId || t.id === transactionId,
+  );
   // Then try incoming (purchases)
-  const incomingTransaction = incomingTransactions.find(t => t.billNumber === transactionId);
+  const incomingTransaction = incomingTransactions.find(
+    (t) => t.billNumber === transactionId || t.id === transactionId,
+  );
 
   const transaction = outgoingTransaction || incomingTransaction;
   const isSale = !!outgoingTransaction;
@@ -102,10 +105,20 @@ export function ViewBill() {
     if (!printableRef.current || !transactionId) {
       return null;
     }
-    const canvas = await html2canvas(printableRef.current, {
+    const element = printableRef.current;
+    const canvas = await html2canvas(element, {
       scale: 2,
       useCORS: true,
       backgroundColor: '#ffffff',
+      scrollY: -window.scrollY,
+      scrollX: -window.scrollX,
+      windowWidth: element.scrollWidth,
+      windowHeight: element.scrollHeight,
+      width: element.scrollWidth,
+      height: element.scrollHeight,
+      onclone: (_clonedDoc, clonedElement) => {
+        prepareElementForCanvasCapture(_clonedDoc, clonedElement, element);
+      },
     });
     const imageData = canvas.toDataURL('image/png');
     const pdf = new jsPDF({
@@ -141,24 +154,23 @@ export function ViewBill() {
     );
   }
 
-  const handlePrint = async () => {
-    try {
-      const captured = await captureBillPdfBase64();
-      if (!captured) {
-        throw new Error('Printable bill section not found');
+  const handlePrint = () => {
+    // Print immediately via the browser; PDF archival is optional and must not block printing.
+    void (async () => {
+      try {
+        const captured = await captureBillPdfBase64();
+        if (!captured) return;
+        await savePrintedBillApi({
+          billNumber: transaction.billNumber,
+          billFormat,
+          invoiceType,
+          fileName: captured.fileName,
+          pdfBase64: captured.base64,
+        });
+      } catch {
+        // Printing should still work even if archival fails.
       }
-      const { base64, fileName } = captured;
-      await savePrintedBillApi({
-        billNumber: transaction.billNumber,
-        billFormat,
-        invoiceType,
-        fileName,
-        pdfBase64: base64,
-      });
-      toast.success('Bill PDF saved to database');
-    } catch (error) {
-      toast.error(humanizeApiError(error, 'Could not save the bill PDF.'));
-    }
+    })();
 
     window.print();
   };
@@ -185,7 +197,6 @@ export function ViewBill() {
     setNewItemQuantity(1);
     setIsCustomItem(false);
     setCustomItemName('');
-    setCustomItemSku('');
     setCustomItemPrice(0);
     setCustomItemQuantity(1);
   };
@@ -222,7 +233,6 @@ export function ViewBill() {
     setNewItemQuantity(1);
     setIsCustomItem(false);
     setCustomItemName('');
-    setCustomItemSku('');
     setCustomItemPrice(0);
     setCustomItemQuantity(1);
   };
@@ -412,10 +422,15 @@ export function ViewBill() {
         </div>
       </div>
 
-      <div ref={printableRef}>
+      <div
+        ref={printableRef}
+        className={`bill-print-root print:break-inside-auto ${
+          billFormat === 'compact' ? 'bill-format-compact' : 'bill-format-full'
+        }`}
+      >
       {billFormat === 'compact' ? (
         /* Compact Receipt Format */
-        <Card className="max-w-sm mx-auto">
+        <Card className="max-w-sm mx-auto print:shadow-none print:break-inside-avoid">
           <div className="p-4 text-sm">
             {deliveryRecordLine && (
               <div className="mb-3 rounded border border-dashed border-gray-300 bg-gray-50 px-2 py-1.5 text-center text-[10px] text-gray-700 sm:text-xs">
@@ -568,8 +583,8 @@ export function ViewBill() {
         </Card>
       ) : (
         /* Full Page Invoice Format */
-        <Card className="max-w-4xl mx-auto">
-          <div className="p-4 sm:p-6 md:p-8 lg:p-12">
+        <Card className="max-w-4xl mx-auto print:max-w-none print:shadow-none print:break-inside-auto">
+          <div className="p-4 sm:p-6 md:p-8 lg:p-12 print:p-6">
             {deliveryRecordLine && (
               <div className="mb-4 rounded border border-dashed border-gray-300 bg-gray-50 px-3 py-2 text-center text-xs text-gray-700">
                 {deliveryRecordLine}
@@ -632,8 +647,8 @@ export function ViewBill() {
             </div>
 
             {/* Item Details Table */}
-            <div className="mb-8 overflow-x-auto -mx-4 sm:mx-0">
-              <table className="w-full min-w-[640px]">
+            <div className="mb-8 overflow-x-auto -mx-4 sm:mx-0 print:overflow-visible print:mx-0">
+              <table className="w-full min-w-[640px] print:min-w-0">
                 <thead className="bg-gray-100 border-y border-gray-300">
                   <tr>
                     <th className="text-left py-3 px-2 sm:px-4 font-semibold text-gray-700 text-sm">Item Description</th>

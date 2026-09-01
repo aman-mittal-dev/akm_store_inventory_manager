@@ -199,7 +199,7 @@ export function IncomingStock() {
     toast.success("Item removed from cart");
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (cart.length === 0) {
@@ -286,41 +286,37 @@ export function IncomingStock() {
       }
     });
 
-    addIncomingTransaction({
-      items: processedItems,
-      totalCost,
-      previousOutstandingCarried: previousCarried || undefined,
-      supplierName: supplierInfo.supplierName,
-      supplierContact:
-        supplierInfo.supplierContact || undefined,
-      date: new Date(supplierInfo.date).toISOString(),
-      notes: supplierInfo.notes || undefined,
-      billNumber,
-      paidAmount,
-      pendingAmount,
-      paymentStatus,
-      paymentHistory:
-        paidAmount > 0
-          ? [
-              {
-                id: "1",
-                amount: paidAmount,
-                date: new Date().toISOString(),
-                method: supplierInfo.paymentMethod,
-                notes: "Initial payment",
-              },
-            ]
-          : undefined,
-    });
-
-    const totalItems = cart.reduce(
-      (sum, item) => sum + item.quantity,
-      0,
-    );
-    toast.success(
-      `Purchase recorded successfully! Bill #${billNumber}`,
-    );
-    navigate(`/bill/${billNumber}`);
+    try {
+      await addIncomingTransaction({
+        items: processedItems,
+        totalCost,
+        previousOutstandingCarried: previousCarried || undefined,
+        supplierName: supplierInfo.supplierName,
+        supplierContact:
+          supplierInfo.supplierContact || undefined,
+        date: new Date(supplierInfo.date).toISOString(),
+        notes: supplierInfo.notes || undefined,
+        billNumber,
+        paidAmount,
+        pendingAmount,
+        paymentStatus,
+        paymentHistory:
+          paidAmount > 0
+            ? [
+                {
+                  id: "1",
+                  amount: paidAmount,
+                  date: new Date().toISOString(),
+                  method: supplierInfo.paymentMethod,
+                  notes: "Initial payment",
+                },
+              ]
+            : undefined,
+      });
+      navigate(`/bill/${billNumber}`);
+    } catch {
+      // Error toast shown by context
+    }
   };
 
   const linesSubtotal = cart.reduce((sum, item) => sum + item.totalPrice, 0);
@@ -581,11 +577,11 @@ export function IncomingStock() {
                     </div>
                   </div>
 
-                  <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                    <p className="text-xs text-yellow-800">
-                      <strong>Note:</strong> Custom items won't
-                      be tracked in your inventory system. They
-                      will only appear on this bill.
+                  <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                    <p className="text-xs text-blue-800">
+                      <strong>Note:</strong> Custom items will be
+                      added to your inventory automatically with
+                      the quantity purchased.
                     </p>
                   </div>
                 </div>

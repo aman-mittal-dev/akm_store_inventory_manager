@@ -20,8 +20,8 @@ export function Layout() {
 
   return (
     <InventoryProvider>
-      <div className="h-screen flex flex-col bg-gray-50 overflow-hidden">
-        <header className="bg-white border-b border-gray-200 flex-shrink-0">
+      <div className="layout-shell h-screen flex flex-col bg-gray-50 overflow-hidden">
+        <header className="layout-header bg-white border-b border-gray-200 flex-shrink-0">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex items-center justify-between h-16">
               <button
@@ -41,7 +41,7 @@ export function Layout() {
           </div>
         </header>
 
-        <nav className="bg-white border-b border-gray-200 flex-shrink-0 overflow-x-auto">
+        <nav className="layout-nav bg-white border-b border-gray-200 flex-shrink-0 overflow-x-auto">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex space-x-1 sm:space-x-4">
               {navItems.map(({ path, label, icon: Icon }) => {
@@ -69,8 +69,8 @@ export function Layout() {
           </div>
         </nav>
 
-        <main className="flex-1 overflow-y-auto">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+        <main className="layout-main flex-1 overflow-y-auto">
+          <div className="layout-content max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
             <Outlet />
           </div>
         </main>

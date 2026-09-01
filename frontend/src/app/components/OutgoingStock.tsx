@@ -158,7 +158,7 @@ export function OutgoingStock() {
     toast.success('Item removed from cart');
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (cart.length === 0) {
@@ -220,33 +220,34 @@ export function OutgoingStock() {
       totalPrice: item.totalPrice,
     }));
 
-    addOutgoingTransaction({
-      items: transactionItems,
-      totalRevenue,
-      totalProfit,
-      previousOutstandingCarried: previousCarried || undefined,
-      customerName: customerInfo.customerName,
-      customerContact: customerInfo.customerContact || undefined,
-      date: new Date(customerInfo.date).toISOString(),
-      notes: customerInfo.notes || undefined,
-      billNumber,
-      paidAmount,
-      pendingAmount,
-      paymentStatus,
-      paymentHistory: paidAmount > 0 ? [
-        {
-          id: '1',
-          amount: paidAmount,
-          date: new Date().toISOString(),
-          method: customerInfo.paymentMethod,
-          notes: 'Initial payment',
-        }
-      ] : undefined,
-    });
-
-    const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
-    toast.success(`Sale recorded successfully! Bill #${billNumber}`);
-    navigate(`/bill/${billNumber}`);
+    try {
+      await addOutgoingTransaction({
+        items: transactionItems,
+        totalRevenue,
+        totalProfit,
+        previousOutstandingCarried: previousCarried || undefined,
+        customerName: customerInfo.customerName,
+        customerContact: customerInfo.customerContact || undefined,
+        date: new Date(customerInfo.date).toISOString(),
+        notes: customerInfo.notes || undefined,
+        billNumber,
+        paidAmount,
+        pendingAmount,
+        paymentStatus,
+        paymentHistory: paidAmount > 0 ? [
+          {
+            id: '1',
+            amount: paidAmount,
+            date: new Date().toISOString(),
+            method: customerInfo.paymentMethod,
+            notes: 'Initial payment',
+          }
+        ] : undefined,
+      });
+      navigate(`/bill/${billNumber}`);
+    } catch {
+      // Error toast shown by context
+    }
   };
 
   const linesSubtotal = cart.reduce((sum, item) => sum + item.totalPrice, 0);

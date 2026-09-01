@@ -109,26 +109,26 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
     return items.find((item) => item.id === id);
   };
 
-  const addIncomingTransaction = (transaction: Omit<IncomingTransaction, 'id'>) => {
-    void createIncomingTransactionApi(transaction)
-      .then(() => {
-        toast.success('Purchase saved successfully.');
-        return loadData();
-      })
-      .catch((error) => {
-        toast.error(humanizeApiError(error, 'Could not save this purchase.'));
-      });
+  const addIncomingTransaction = async (transaction: Omit<IncomingTransaction, 'id'>): Promise<void> => {
+    try {
+      await createIncomingTransactionApi(transaction);
+      toast.success('Purchase saved successfully.');
+      await loadData();
+    } catch (error) {
+      toast.error(humanizeApiError(error, 'Could not save this purchase.'));
+      throw error;
+    }
   };
 
-  const addOutgoingTransaction = (transaction: Omit<OutgoingTransaction, 'id'>) => {
-    void createOutgoingTransactionApi(transaction)
-      .then(() => {
-        toast.success('Sale recorded successfully.');
-        return loadData();
-      })
-      .catch((error) => {
-        toast.error(humanizeApiError(error, 'Could not record this sale.'));
-      });
+  const addOutgoingTransaction = async (transaction: Omit<OutgoingTransaction, 'id'>): Promise<void> => {
+    try {
+      await createOutgoingTransactionApi(transaction);
+      toast.success('Sale recorded successfully.');
+      await loadData();
+    } catch (error) {
+      toast.error(humanizeApiError(error, 'Could not record this sale.'));
+      throw error;
+    }
   };
 
   const updateIncomingTransaction = (id: string, updatedData: Partial<IncomingTransaction>) => {
