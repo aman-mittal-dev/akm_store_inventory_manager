@@ -1,4 +1,4 @@
-from typing import Any, Optional
+from typing import Any, Optional, Generic, TypeVar
 from datetime import datetime
 from pydantic import BaseModel, Field, model_validator
 
@@ -68,12 +68,19 @@ class BillDeliveryOut(BaseModel):
 
     model_config = {"from_attributes": False}
 
-class ApiResponse(BaseModel):
-    data: dict | None = None
-    message: str
-    status: int
+# class ApiResponse(BaseModel):
+#     data: dict | None = None
+#     message: str
+#     status: int
 
 class BillApiResponse(BaseModel):
     data: Optional[Any] = None
+    message: str
+    status: int
+
+T = TypeVar("T")
+
+class ApiResponse(BaseModel, Generic[T]):
+    data: T | None = None
     message: str
     status: int

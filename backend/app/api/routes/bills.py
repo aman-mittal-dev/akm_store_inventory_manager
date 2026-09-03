@@ -20,7 +20,7 @@ def _serialize(record: PrintedBill) -> PrintedBillOut:
     )
 
 
-@router.post("/print-records", response_model=ApiResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/print-records", response_model=ApiResponse[PrintedBillOut], status_code=status.HTTP_201_CREATED)
 def create_print_record(res: Response, payload: PrintedBillCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     try:
         try:

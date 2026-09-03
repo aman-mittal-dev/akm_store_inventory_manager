@@ -41,7 +41,7 @@ def _to_out(d: BillDelivery) -> BillDeliveryOut:
     )
 
 
-@router.get("/delivery-config", response_model=ApiResponse)
+@router.get("/delivery-config", response_model=ApiResponse[DeliveryConfigOut])
 def get_delivery_config(res: Response, current_user: User = Depends(get_current_user)):
     _ = current_user
     cfg = delivery_config_public()
@@ -53,7 +53,7 @@ def get_delivery_config(res: Response, current_user: User = Depends(get_current_
     }
 
 
-@router.post("/{bill_number}/deliver", response_model=ApiResponse)
+@router.post("/{bill_number}/deliver", response_model=ApiResponse[BillDeliveryOut])
 def create_delivery(res: Response, bill_number: str, body: DeliverBillRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     try:
         bn = bill_number.strip()

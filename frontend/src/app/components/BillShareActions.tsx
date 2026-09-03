@@ -135,7 +135,21 @@ export function BillShareActions({
 
     setSending(true);
     try {
-      const pdf = await onCapturePdfBase64();
+      let pdf: { base64: string; fileName: string } | null = null;
+      try {
+        pdf = await onCapturePdfBase64();
+      } catch {
+        toast.error(
+          'Bill PDF capture failed (oklch/color). Try Print Bill once, then send again — or refresh and retry.',
+        );
+        return;
+      }
+
+      if (!pdf) {
+        toast.error('Could not create bill PDF. Open the bill, wait for it to load, then try again.');
+        return;
+      }
+
       await deliverBill(billNumber, {
         channel,
         sendMode: scheduleLater ? 'later' : 'now',
@@ -143,7 +157,8 @@ export function BillShareActions({
         billFormat,
         invoiceType,
         isResend: alreadySent,
-        ...(pdf ? { pdfBase64: pdf.base64, fileName: pdf.fileName } : {}),
+        pdfBase64: pdf.base64,
+        fileName: pdf.fileName,
         ...(channel === 'email'
           ? { recipientEmail: recipientEmail.trim() }
           : { recipientPhoneE164: recipientPhone.trim() }),

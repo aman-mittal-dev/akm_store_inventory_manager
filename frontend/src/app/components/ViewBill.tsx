@@ -101,46 +101,356 @@ export function ViewBill() {
     return parts.length > 0 ? parts.join(' · ') : null;
   }, [deliveryLogs]);
 
+  // const captureBillPdfBase64 = useCallback(async (): Promise<{ base64: string; fileName: string } | null> => {
+  //   if (!printableRef.current || !transactionId) {
+  //     return null;
+  //   }
+  //   const element = printableRef.current;
+  //   try {
+  //     const canvas = await html2canvas(element, {
+  //       scale: 2,
+  //       useCORS: true,
+  //       allowTaint: true,
+  //       backgroundColor: '#ffffff',
+  //       logging: false,
+  //       scrollY: -window.scrollY,
+  //       scrollX: -window.scrollX,
+  //       windowWidth: Math.max(element.scrollWidth, element.clientWidth),
+  //       windowHeight: Math.max(element.scrollHeight, element.clientHeight),
+  //       width: Math.max(element.scrollWidth, element.clientWidth),
+  //       height: Math.max(element.scrollHeight, element.clientHeight),
+  //       onclone: (_clonedDoc, clonedElement) => {
+  //         prepareElementForCanvasCapture(_clonedDoc, clonedElement, element);
+  //       },
+  //     });
+  //     // const imageData = canvas.toDataURL('image/png');
+  //     const imageData = canvas.toDataURL('image/jpeg', 0.85);
+  //     const pdf = new jsPDF({
+  //       orientation: canvas.width > canvas.height ? 'landscape' : 'portrait',
+  //       unit: 'px',
+  //       format: [canvas.width, canvas.height],
+  //     });
+  //     // pdf.addImage(imageData, 'PNG', 0, 0, canvas.width, canvas.height);
+  //     pdf.addImage(imageData, 'JPEG', 0, 0, canvas.width, canvas.height, undefined, 'FAST');
+  //     const pdfBlob = pdf.output('blob');
+  //     const base64 = await new Promise<string>((resolve, reject) => {
+  //       const reader = new FileReader();
+  //       reader.onloadend = () => {
+  //         const value = reader.result?.toString() || '';
+  //         resolve(value.split(',')[1] || '');
+  //       };
+  //       reader.onerror = () => reject(new Error('Unable to read PDF blob'));
+  //       reader.readAsDataURL(pdfBlob);
+  //     });
+  //     const fileName = `${transactionId}-${billFormat}-${invoiceType}.pdf`;
+  //     return { base64, fileName };
+  //   } catch (error) {
+  //     console.error('Bill PDF capture failed:', error);
+  //     throw error;
+  //   }
+  // }, [transactionId, billFormat, invoiceType]);
   const captureBillPdfBase64 = useCallback(async (): Promise<{ base64: string; fileName: string } | null> => {
     if (!printableRef.current || !transactionId) {
       return null;
     }
-    const element = printableRef.current;
-    const canvas = await html2canvas(element, {
-      scale: 2,
-      useCORS: true,
-      backgroundColor: '#ffffff',
-      scrollY: -window.scrollY,
-      scrollX: -window.scrollX,
-      windowWidth: element.scrollWidth,
-      windowHeight: element.scrollHeight,
-      width: element.scrollWidth,
-      height: element.scrollHeight,
-      onclone: (_clonedDoc, clonedElement) => {
-        prepareElementForCanvasCapture(_clonedDoc, clonedElement, element);
-      },
-    });
-    const imageData = canvas.toDataURL('image/png');
-    const pdf = new jsPDF({
-      orientation: canvas.width > canvas.height ? 'landscape' : 'portrait',
-      unit: 'px',
-      format: [canvas.width, canvas.height],
-    });
-    pdf.addImage(imageData, 'PNG', 0, 0, canvas.width, canvas.height);
-    const pdfBlob = pdf.output('blob');
-    const base64 = await new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const value = reader.result?.toString() || '';
-        resolve(value.split(',')[1] || '');
-      };
-      reader.onerror = () => reject(new Error('Unable to read PDF blob'));
-      reader.readAsDataURL(pdfBlob);
-    });
-    const fileName = `${transactionId}-${billFormat}-${invoiceType}.pdf`;
-    return { base64, fileName };
-  }, [transactionId, billFormat, invoiceType]);
 
+    const element = printableRef.current;
+
+    try {
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: '#ffffff',
+        logging: false,
+
+        scrollY: -window.scrollY,
+        scrollX: -window.scrollX,
+
+        windowWidth: Math.max(element.scrollWidth, element.clientWidth),
+        windowHeight: Math.max(element.scrollHeight, element.clientHeight),
+
+        width: Math.max(element.scrollWidth, element.clientWidth),
+        height: Math.max(element.scrollHeight, element.clientHeight),
+
+        onclone: (_clonedDoc, clonedElement) => {
+          prepareElementForCanvasCapture(
+            _clonedDoc,
+            clonedElement,
+            element
+          );
+        },
+      });
+
+      /*
+      * ============================================================
+      * A4 PDF CONFIGURATION
+      * ============================================================
+      *
+      * jsPDF A4 dimensions in millimeters:
+      *
+      * Width  = 210mm
+      * Height = 297mm
+      *
+      * We use mm instead of px so the PDF has a standard
+      * printable A4 page size.
+      */
+
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4',
+        compress: true,
+      });
+
+      /*
+      * A4 dimensions
+      */
+      const pageWidth = 210;
+      const pageHeight = 297;
+
+      /*
+      * Small margins.
+      *
+      * These margins also prevent the invoice from touching
+      * the physical edge of the A4 page.
+      */
+      const marginX = 8;
+      const marginY = 8;
+
+      const contentWidth = pageWidth - marginX * 2;
+      const contentHeight = pageHeight - marginY * 2;
+
+      /*
+      * ============================================================
+      * SCALE CANVAS TO A4 WIDTH
+      * ============================================================
+      *
+      * The entire invoice is first scaled according to A4 width.
+      *
+      * Example:
+      *
+      * Canvas:
+      * 1446 × 2840
+      *
+      * A4 content width:
+      * 194mm
+      *
+      * The height is calculated proportionally.
+      */
+
+      const imageAspectRatio = canvas.height / canvas.width;
+
+      const renderedWidth = contentWidth;
+      const renderedHeight = renderedWidth * imageAspectRatio;
+
+      /*
+      * Convert JPEG once.
+      *
+      * Keeping JPEG instead of PNG significantly reduces
+      * the final PDF size.
+      */
+      const imageData = canvas.toDataURL('image/jpeg', 0.85);
+
+      /*
+      * ============================================================
+      * MULTI-PAGE A4 LOGIC
+      * ============================================================
+      *
+      * If the invoice is taller than one A4 page, we crop the
+      * canvas into A4-sized sections.
+      *
+      * This prevents:
+      *
+      * ❌ giant custom PDF page
+      * ❌ horizontal scrolling
+      * ❌ distorted invoice
+      *
+      * and produces:
+      *
+      * Page 1 → A4
+      * Page 2 → A4
+      * Page 3 → A4
+      */
+
+      let remainingHeight = renderedHeight;
+      let sourceY = 0;
+
+      /*
+      * Height of one A4 page expressed in source-canvas pixels.
+      *
+      * We calculate this based on the same scale used to fit
+      * the image to the A4 content width.
+      */
+      const sourcePageHeight =
+        (contentHeight / renderedWidth) * canvas.width;
+
+      /*
+      * ============================================================
+      * IMPORTANT:
+      *
+      * addImage() can crop the source image using:
+      *
+      * sx, sy, sw, sh
+      *
+      * depending on jsPDF version.
+      *
+      * To keep compatibility high, we use an off-screen canvas
+      * for each page.
+      * ============================================================
+      */
+
+      const pageCanvas = document.createElement('canvas');
+
+      pageCanvas.width = canvas.width;
+
+      /*
+      * Keep enough height for one A4 page.
+      */
+      pageCanvas.height = Math.min(
+        Math.ceil(sourcePageHeight),
+        canvas.height
+      );
+
+      const pageContext = pageCanvas.getContext('2d');
+
+      if (!pageContext) {
+        throw new Error('Unable to create PDF page canvas');
+      }
+
+      /*
+      * White background.
+      */
+      pageContext.fillStyle = '#ffffff';
+
+      /*
+      * Number of pages.
+      */
+      const totalPages = Math.ceil(
+        canvas.height / sourcePageHeight
+      );
+
+      for (let pageIndex = 0; pageIndex < totalPages; pageIndex++) {
+        if (pageIndex > 0) {
+          pdf.addPage('a4', 'portrait');
+        }
+
+        /*
+        * Calculate source area for this page.
+        */
+        const currentSourceY =
+          pageIndex * sourcePageHeight;
+
+        const currentSourceHeight = Math.min(
+          sourcePageHeight,
+          canvas.height - currentSourceY
+        );
+
+        /*
+        * Resize page canvas if this is the final page.
+        */
+        pageCanvas.height = Math.ceil(currentSourceHeight);
+
+        pageContext.fillStyle = '#ffffff';
+        pageContext.fillRect(
+          0,
+          0,
+          pageCanvas.width,
+          pageCanvas.height
+        );
+
+        /*
+        * Copy only the current A4 section.
+        */
+        pageContext.drawImage(
+          canvas,
+
+          // Source
+          0,
+          currentSourceY,
+          canvas.width,
+          currentSourceHeight,
+
+          // Destination
+          0,
+          0,
+          pageCanvas.width,
+          currentSourceHeight
+        );
+
+        /*
+        * Convert this page section to JPEG.
+        */
+        const pageImageData = pageCanvas.toDataURL(
+          'image/jpeg',
+          0.85
+        );
+
+        /*
+        * Calculate actual height of this page in mm.
+        */
+        const currentRenderedHeight =
+          (currentSourceHeight / canvas.width) *
+          renderedWidth;
+
+        /*
+        * Add page image.
+        */
+        pdf.addImage(
+          pageImageData,
+          'JPEG',
+          marginX,
+          marginY,
+          renderedWidth,
+          Math.min(
+            currentRenderedHeight,
+            contentHeight
+          ),
+          undefined,
+          'FAST'
+        );
+
+        /*
+        * Explicitly release image reference after each page.
+        */
+      }
+
+      /*
+      * ============================================================
+      * GENERATE PDF BASE64
+      * ============================================================
+      */
+
+      const pdfBlob = pdf.output('blob');
+
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+
+        reader.onloadend = () => {
+          const value = reader.result?.toString() || '';
+          resolve(value.split(',')[1] || '');
+        };
+
+        reader.onerror = () => {
+          reject(new Error('Unable to read PDF blob'));
+        };
+
+        reader.readAsDataURL(pdfBlob);
+      });
+
+      const fileName =
+        `${transactionId}-${billFormat}-${invoiceType}.pdf`;
+
+      return {
+        base64,
+        fileName,
+      };
+
+    } catch (error) {
+      console.error('Bill PDF capture failed:', error);
+      throw error;
+    }
+  }, [transactionId, billFormat, invoiceType]);
   if (!transaction) {
     return (
       <div className="text-center py-12">

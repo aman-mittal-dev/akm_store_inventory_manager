@@ -35,6 +35,7 @@ def send_invoice_email_smtp(
         pdf_bytes, maintype="application", subtype="pdf", filename=attachment_file_name
     )
 
+    pdf_size_mb = len(pdf_bytes) / (1024 * 1024)
     if settings.SMTP_USE_SSL:
         with smtplib.SMTP_SSL(host, port, timeout=60) as smtp:
             if user and password:
