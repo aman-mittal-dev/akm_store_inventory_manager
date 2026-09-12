@@ -5,7 +5,45 @@ import {
   OutgoingTransaction,
   NewInventoryItemInput,
   PaymentRecord,
+  StoreSettings,
 } from "../types";
+
+type ApiStoreSettings = {
+  id: string;
+  storeName: string;
+  gstNumber?: string | null;
+  address?: string | null;
+  phoneNumber?: string | null;
+  email?: string | null;
+};
+
+function mapStoreSettings(data: ApiStoreSettings): StoreSettings {
+  return {
+    storeName: data.storeName || "",
+    gstNumber: data.gstNumber || "",
+    address: data.address || "",
+    phone: data.phoneNumber || "",
+    email: data.email || "",
+  };
+}
+
+export function getStoreSettingsApi() {
+  return apiFetch<ApiStoreSettings>("/store").then(mapStoreSettings);
+}
+
+export function updateStoreSettingsApi(settings: StoreSettings) {
+  const email = settings.email?.trim();
+  return apiFetch<ApiStoreSettings>("/store", {
+    method: "PUT",
+    body: JSON.stringify({
+      storeName: settings.storeName,
+      gstNumber: settings.gstNumber || null,
+      address: settings.address || null,
+      phoneNumber: settings.phone || null,
+      email: email || null,
+    }),
+  }).then(mapStoreSettings);
+}
 
 export function getItemsApi() {
   return apiFetch<{ items: InventoryItem[] }>("/items").then((body) => body.items ?? []);

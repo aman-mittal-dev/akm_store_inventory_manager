@@ -105,7 +105,7 @@ export interface InventoryContextType {
     payment: Pick<IncomingTransaction, 'paidAmount' | 'pendingAmount' | 'paymentStatus' | 'paymentHistory'>,
   ) => Promise<void>;
   getTransactionsByItemId: (itemId: string) => { incoming: IncomingTransaction[], outgoing: OutgoingTransaction[] };
-  updateStoreSettings: (settings: Partial<StoreSettings>) => void;
+  updateStoreSettings: (settings: Partial<StoreSettings>) => Promise<void>;
 }
 
 export type SubscriptionPlan = 'monthly' | 'quarterly' | 'annual' | 'custom';

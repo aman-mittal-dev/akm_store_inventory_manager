@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useInventory } from '../context/InventoryContext';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
@@ -11,12 +11,30 @@ import { toast } from 'sonner';
 export function StoreSettings() {
   const { storeSettings, updateStoreSettings } = useInventory();
   const [isEditing, setIsEditing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [formData, setFormData] = useState(storeSettings);
 
-  const handleSave = () => {
-    updateStoreSettings(formData);
-    setIsEditing(false);
-    toast.success('Store settings updated successfully!');
+  useEffect(() => {
+    if (!isEditing) {
+      setFormData(storeSettings);
+    }
+  }, [storeSettings, isEditing]);
+
+  const handleSave = async () => {
+    if (!formData.storeName.trim()) {
+      toast.error('Store name is required');
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      await updateStoreSettings(formData);
+      setIsEditing(false);
+    } catch {
+      // Error toast shown by context
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleCancel = () => {
@@ -38,13 +56,13 @@ export function StoreSettings() {
           </Button>
         ) : (
           <div className="flex gap-2">
-            <Button variant="outline" onClick={handleCancel}>
+            <Button variant="outline" onClick={handleCancel} disabled={isSaving}>
               <X className="w-4 h-4 mr-2" />
               Cancel
             </Button>
-            <Button onClick={handleSave}>
+            <Button onClick={handleSave} disabled={isSaving}>
               <Save className="w-4 h-4 mr-2" />
-              Save Changes
+              {isSaving ? 'Saving...' : 'Save Changes'}
             </Button>
           </div>
         )}

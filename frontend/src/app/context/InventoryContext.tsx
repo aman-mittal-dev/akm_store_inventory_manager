@@ -14,11 +14,13 @@ import {
   createOutgoingTransactionApi,
   deleteItemApi,
   getItemsApi,
+  getStoreSettingsApi,
   getTransactionsApi,
   mapIncomingTransaction,
   mapOutgoingTransaction,
   updateItemApi,
   updatePaymentStatusApi,
+  updateStoreSettingsApi,
 } from '../services/inventoryService';
 import { humanizeApiError } from '../utils/apiErrors';
 
@@ -60,6 +62,13 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
       setIncomingTransactions([]);
       setOutgoingTransactions([]);
       toast.error(humanizeApiError(error, 'Could not load inventory or transactions.'));
+    }
+
+    try {
+      const fetchedStoreSettings = await getStoreSettingsApi();
+      setStoreSettings(fetchedStoreSettings);
+    } catch (error) {
+      toast.error(humanizeApiError(error, 'Could not load store settings.'));
     }
   };
 
@@ -190,8 +199,16 @@ export function InventoryProvider({ children }: { children: ReactNode }) {
     };
   };
 
-  const updateStoreSettings = (settings: Partial<StoreSettings>) => {
-    setStoreSettings((prev) => ({ ...prev, ...settings }));
+  const updateStoreSettings = async (settings: Partial<StoreSettings>): Promise<void> => {
+    const next = { ...storeSettings, ...settings };
+    try {
+      const saved = await updateStoreSettingsApi(next);
+      setStoreSettings(saved);
+      toast.success('Store settings updated successfully!');
+    } catch (error) {
+      toast.error(humanizeApiError(error, 'Could not save store settings.'));
+      throw error;
+    }
   };
 
   return (

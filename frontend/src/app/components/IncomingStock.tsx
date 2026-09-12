@@ -20,11 +20,14 @@ import {
 } from "./ui/select";
 import {
   ArrowDownToLine,
+  Check,
   FileText,
   Plus,
+  Pencil,
   Trash2,
   ShoppingCart,
   Package,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -71,6 +74,13 @@ export function IncomingStock() {
   const [includePreviousOutstanding, setIncludePreviousOutstanding] =
     useState(false);
   const [carryAmountStr, setCarryAmountStr] = useState("");
+
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [editDraft, setEditDraft] = useState({
+    itemName: "",
+    quantity: "",
+    pricePerUnit: "",
+  });
 
   const partyKeyPreview = useMemo(() => {
     if (!supplierInfo.supplierName.trim()) return null;
@@ -196,7 +206,61 @@ export function IncomingStock() {
 
   const handleRemoveFromCart = (index: number) => {
     setCart(cart.filter((_, i) => i !== index));
+    if (editingIndex === index) {
+      setEditingIndex(null);
+    } else if (editingIndex !== null && editingIndex > index) {
+      setEditingIndex(editingIndex - 1);
+    }
     toast.success("Item removed from cart");
+  };
+
+  const handleStartEdit = (index: number) => {
+    const item = cart[index];
+    setEditingIndex(index);
+    setEditDraft({
+      itemName: item.itemName,
+      quantity: String(item.quantity),
+      pricePerUnit: String(item.pricePerUnit),
+    });
+  };
+
+  const handleCancelEdit = () => {
+    setEditingIndex(null);
+  };
+
+  const handleSaveEdit = () => {
+    if (editingIndex === null) return;
+
+    const itemName = editDraft.itemName.trim();
+    const quantity = parseInt(editDraft.quantity, 10);
+    const pricePerUnit = parseFloat(editDraft.pricePerUnit);
+
+    if (
+      !itemName ||
+      isNaN(quantity) ||
+      isNaN(pricePerUnit) ||
+      quantity <= 0 ||
+      pricePerUnit < 0
+    ) {
+      toast.error("Please enter valid name, quantity, and price");
+      return;
+    }
+
+    const existing = cart[editingIndex];
+    const totalPrice = quantity * pricePerUnit;
+
+    const updated = [...cart];
+    updated[editingIndex] = {
+      ...existing,
+      itemName,
+      quantity,
+      pricePerUnit,
+      totalPrice,
+      purchasePrice: pricePerUnit,
+    };
+    setCart(updated);
+    setEditingIndex(null);
+    toast.success("Item updated");
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -804,53 +868,155 @@ export function IncomingStock() {
                         key={index}
                         className="p-3 bg-gray-50 rounded-lg border border-gray-200"
                       >
-                        <div className="flex items-start justify-between mb-2">
-                          <div className="flex-1">
-                            <h5 className="font-medium text-sm text-gray-900">
-                              {item.itemName}
-                            </h5>
-                            <p className="text-xs text-gray-600">
-                              {item.sku}
-                            </p>
+                        {editingIndex === index ? (
+                          <div className="space-y-2">
+                            <div>
+                              <Label
+                                htmlFor={`purchase-edit-name-${index}`}
+                                className="text-xs"
+                              >
+                                Name
+                              </Label>
+                              <Input
+                                id={`purchase-edit-name-${index}`}
+                                value={editDraft.itemName}
+                                onChange={(e) =>
+                                  setEditDraft({
+                                    ...editDraft,
+                                    itemName: e.target.value,
+                                  })
+                                }
+                                className="h-8 text-sm"
+                              />
+                            </div>
+                            <div className="grid grid-cols-2 gap-2">
+                              <div>
+                                <Label
+                                  htmlFor={`purchase-edit-qty-${index}`}
+                                  className="text-xs"
+                                >
+                                  Qty
+                                </Label>
+                                <Input
+                                  id={`purchase-edit-qty-${index}`}
+                                  type="number"
+                                  min="1"
+                                  value={editDraft.quantity}
+                                  onChange={(e) =>
+                                    setEditDraft({
+                                      ...editDraft,
+                                      quantity: e.target.value,
+                                    })
+                                  }
+                                  className="h-8 text-sm"
+                                />
+                              </div>
+                              <div>
+                                <Label
+                                  htmlFor={`purchase-edit-price-${index}`}
+                                  className="text-xs"
+                                >
+                                  Price/unit
+                                </Label>
+                                <Input
+                                  id={`purchase-edit-price-${index}`}
+                                  type="number"
+                                  min="0"
+                                  step="0.01"
+                                  value={editDraft.pricePerUnit}
+                                  onChange={(e) =>
+                                    setEditDraft({
+                                      ...editDraft,
+                                      pricePerUnit: e.target.value,
+                                    })
+                                  }
+                                  className="h-8 text-sm"
+                                />
+                              </div>
+                            </div>
+                            <div className="flex gap-1 justify-end pt-1">
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={handleCancelEdit}
+                                className="text-gray-600"
+                              >
+                                <X className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={handleSaveEdit}
+                                className="text-green-600 hover:text-green-700 hover:bg-green-50"
+                              >
+                                <Check className="w-4 h-4" />
+                              </Button>
+                            </div>
                           </div>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={() =>
-                              handleRemoveFromCart(index)
-                            }
-                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </div>
-                        <div className="space-y-1 text-xs">
-                          <div className="flex justify-between">
-                            <span className="text-gray-600">
-                              Quantity:
-                            </span>
-                            <span className="font-medium">
-                              {item.quantity} units
-                            </span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-gray-600">
-                              Price/unit:
-                            </span>
-                            <span className="font-medium">
-                              {formatINR(item.pricePerUnit)}
-                            </span>
-                          </div>
-                          <div className="flex justify-between pt-1 border-t border-gray-300">
-                            <span className="text-gray-700 font-medium">
-                              Total:
-                            </span>
-                            <span className="font-semibold text-green-600">
-                              {formatINR(item.totalPrice)}
-                            </span>
-                          </div>
-                        </div>
+                        ) : (
+                          <>
+                            <div className="flex items-start justify-between mb-2">
+                              <div className="flex-1">
+                                <h5 className="font-medium text-sm text-gray-900">
+                                  {item.itemName}
+                                </h5>
+                                <p className="text-xs text-gray-600">
+                                  {item.sku}
+                                </p>
+                              </div>
+                              <div className="flex gap-0.5">
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleStartEdit(index)}
+                                  className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                >
+                                  <Pencil className="w-4 h-4" />
+                                </Button>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() =>
+                                    handleRemoveFromCart(index)
+                                  }
+                                  className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
+                              </div>
+                            </div>
+                            <div className="space-y-1 text-xs">
+                              <div className="flex justify-between">
+                                <span className="text-gray-600">
+                                  Quantity:
+                                </span>
+                                <span className="font-medium">
+                                  {item.quantity} units
+                                </span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-gray-600">
+                                  Price/unit:
+                                </span>
+                                <span className="font-medium">
+                                  {formatINR(item.pricePerUnit)}
+                                </span>
+                              </div>
+                              <div className="flex justify-between pt-1 border-t border-gray-300">
+                                <span className="text-gray-700 font-medium">
+                                  Total:
+                                </span>
+                                <span className="font-semibold text-green-600">
+                                  {formatINR(item.totalPrice)}
+                                </span>
+                              </div>
+                            </div>
+                          </>
+                        )}
                       </div>
                     ))}
                   </div>

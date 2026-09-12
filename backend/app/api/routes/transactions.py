@@ -233,13 +233,9 @@ def create_incoming(res: Response, payload: IncomingTransactionCreate, db: Sessi
 def create_outgoing(res: Response, payload: OutgoingTransactionCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     try:
         for entry in payload.items:
+            # Custom/ad-hoc items (itemId is None) are bill-only and skip stock checks
             if entry.itemId is None:
-                res.status_code = status.HTTP_400_BAD_REQUEST
-                return {
-                    "data": None,
-                    "message": f"Item '{entry.itemName}' is not in inventory and cannot be sold",
-                    "status": status.HTTP_400_BAD_REQUEST,
-                }
+                continue
 
             item = db.query(Item).filter(Item.id == entry.itemId, Item.owner_id == current_user.id).first()
             if not item:
@@ -258,6 +254,8 @@ def create_outgoing(res: Response, payload: OutgoingTransactionCreate, db: Sessi
                 }
 
         for entry in payload.items:
+            if entry.itemId is None:
+                continue
             item = db.query(Item).filter(Item.id == entry.itemId, Item.owner_id == current_user.id).first()
             if item:
                 item.current_stock -= entry.quantity
