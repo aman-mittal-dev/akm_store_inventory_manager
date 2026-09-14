@@ -15,6 +15,7 @@ import { normalizePartyKey, roundMoney } from '../utils/party';
 import { receivableOutstandingForPartyKey } from '../utils/partySummaries';
 import { generateAdHocSku } from '../utils/sku';
 import { Checkbox } from './ui/checkbox';
+import { dateWithSystemTime } from '../utils/dateTime';
 
 interface CartItem extends TransactionItem {
   purchasePrice: number;
@@ -299,7 +300,7 @@ export function OutgoingStock() {
         previousOutstandingCarried: previousCarried || undefined,
         customerName: customerInfo.customerName,
         customerContact: customerInfo.customerContact || undefined,
-        date: new Date(customerInfo.date).toISOString(),
+        date: dateWithSystemTime(customerInfo.date),
         notes: customerInfo.notes || undefined,
         billNumber,
         paidAmount,

@@ -39,6 +39,7 @@ import { normalizePartyKey, roundMoney } from "../utils/party";
 import { payableOutstandingForPartyKey } from "../utils/partySummaries";
 import { generateAdHocSku } from "../utils/sku";
 import { Checkbox } from "./ui/checkbox";
+import { dateWithSystemTime } from "../utils/dateTime";
 
 interface CartItem extends TransactionItem {
   purchasePrice: number;
@@ -358,7 +359,7 @@ export function IncomingStock() {
         supplierName: supplierInfo.supplierName,
         supplierContact:
           supplierInfo.supplierContact || undefined,
-        date: new Date(supplierInfo.date).toISOString(),
+        date: dateWithSystemTime(supplierInfo.date),
         notes: supplierInfo.notes || undefined,
         billNumber,
         paidAmount,

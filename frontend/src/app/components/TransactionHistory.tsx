@@ -10,6 +10,7 @@ import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { ArrowDownToLine, ArrowUpFromLine, FileText, Calendar, Filter, X } from 'lucide-react';
 import { formatINR } from '../utils/currency';
+import { formatTransactionDateTime } from '../utils/dateTime';
 
 type FilterType = 'all' | 'year' | 'month' | 'custom';
 
@@ -21,7 +22,6 @@ export function TransactionHistory() {
   const [startDate, setStartDate] = useState<string>('');
   const [endDate, setEndDate] = useState<string>('');
 
-  // Get available years
   const availableYears = Array.from(new Set(
     [...incomingTransactions, ...outgoingTransactions]
       .map(t => new Date(t.date).getFullYear().toString())
@@ -46,29 +46,28 @@ export function TransactionHistory() {
     { value: '11', label: 'December' },
   ];
 
-  // Filter transactions based on selected filter
   const filterTransactions = <T extends { date: string }>(transactions: T[]): T[] => {
     if (filterType === 'all') return transactions;
 
     return transactions.filter(t => {
       const date = new Date(t.date);
-      
+
       if (filterType === 'year') {
         return date.getFullYear().toString() === selectedYear;
       }
-      
+
       if (filterType === 'month') {
-        return date.getFullYear().toString() === selectedYear && 
+        return date.getFullYear().toString() === selectedYear &&
                date.getMonth().toString() === selectedMonth;
       }
-      
+
       if (filterType === 'custom' && startDate && endDate) {
         const start = new Date(startDate);
         const end = new Date(endDate);
-        end.setHours(23, 59, 59, 999); // Include end date
+        end.setHours(23, 59, 59, 999);
         return date >= start && date <= end;
       }
-      
+
       return true;
     });
   };
@@ -76,23 +75,13 @@ export function TransactionHistory() {
   const filteredIncoming = filterTransactions(incomingTransactions);
   const filteredOutgoing = filterTransactions(outgoingTransactions);
 
-  const sortedIncoming = [...filteredIncoming].sort((a, b) => 
+  const sortedIncoming = [...filteredIncoming].sort((a, b) =>
     new Date(b.date).getTime() - new Date(a.date).getTime()
   );
 
-  const sortedOutgoing = [...filteredOutgoing].sort((a, b) => 
+  const sortedOutgoing = [...filteredOutgoing].sort((a, b) =>
     new Date(b.date).getTime() - new Date(a.date).getTime()
   );
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-IN', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
 
   const totalPurchases = filteredIncoming.reduce((sum, t) => sum + t.totalCost, 0);
   const totalSales = filteredOutgoing.reduce((sum, t) => sum + t.totalRevenue, 0);
@@ -116,6 +105,9 @@ export function TransactionHistory() {
     return 'Filtered';
   };
 
+  const totalQty = (items: { quantity: number }[]) =>
+    items.reduce((sum, item) => sum + item.quantity, 0);
+
   return (
     <div className="space-y-6">
       <div>
@@ -123,7 +115,6 @@ export function TransactionHistory() {
         <p className="text-gray-600 mt-2">Complete record of all inventory transactions</p>
       </div>
 
-      {/* Filter Section */}
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
@@ -247,7 +238,6 @@ export function TransactionHistory() {
         </CardContent>
       </Card>
 
-      {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Card>
           <CardHeader className="pb-2">
@@ -280,7 +270,6 @@ export function TransactionHistory() {
         </Card>
       </div>
 
-      {/* Transaction Lists */}
       <Card>
         <CardContent className="pt-6">
           <Tabs defaultValue="outgoing">
@@ -302,85 +291,90 @@ export function TransactionHistory() {
                     No sales recorded yet
                   </div>
                 ) : (
-                  sortedOutgoing.map(transaction => (
-                    <div
-                      key={transaction.id}
-                      className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
-                    >
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-3 mb-2">
-                            <h4 className="font-medium text-gray-900">
-                              {transaction.items.length} Item{transaction.items.length > 1 ? 's' : ''} Sale
-                            </h4>
-                            <Badge className="bg-blue-600">Sale</Badge>
-                          </div>
-
-                          {/* List all items */}
-                          <div className="mb-3 space-y-1">
-                            {transaction.items.map((item, idx) => (
-                              <div key={idx} className="text-sm">
-                                <span className="font-medium text-gray-900">{item.itemName}</span>
-                                <span className="text-gray-600"> ({item.sku})</span>
-                                <span className="text-gray-600"> - {item.quantity} units @ {formatINR(item.pricePerUnit)}</span>
-                              </div>
-                            ))}
-                          </div>
-                          
-                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                            <div>
-                              <p className="text-gray-600">Customer</p>
-                              <p className="font-medium text-gray-900">{transaction.customerName}</p>
-                              {transaction.customerContact && (
-                                <p className="text-gray-500 text-xs">{transaction.customerContact}</p>
-                              )}
-                            </div>
-                            <div>
-                              <p className="text-gray-600">Total Quantity</p>
-                              <p className="font-medium text-gray-900">
-                                {transaction.items.reduce((sum, item) => sum + item.quantity, 0)} units
-                              </p>
-                            </div>
-                            <div>
-                              <p className="text-gray-600">Revenue</p>
-                              <p className="font-medium text-blue-600">{formatINR(transaction.totalRevenue)}</p>
-                            </div>
-                            <div>
-                              <p className="text-gray-600">Profit</p>
-                              <p className="font-medium text-green-600">{formatINR(transaction.totalProfit)}</p>
-                              <p className="text-xs text-gray-500">
-                                {((transaction.totalProfit / transaction.totalRevenue) * 100).toFixed(1)}% margin
-                              </p>
-                            </div>
-                          </div>
-
-                          <div className="flex items-center gap-4 mt-3 text-sm text-gray-600">
-                            <div className="flex items-center gap-1">
-                              <Calendar className="w-4 h-4" />
-                              {formatDate(transaction.date)}
-                            </div>
-                            <div className="flex items-center gap-1">
-                              <FileText className="w-4 h-4" />
-                              Bill: {transaction.billNumber}
-                            </div>
-                          </div>
-
-                          {transaction.notes && (
-                            <p className="text-sm text-gray-600 mt-2 italic">
-                              Note: {transaction.notes}
-                            </p>
-                          )}
-                        </div>
-
-                        <Link to={`/bill/${transaction.billNumber}`}>
-                          <Button variant="outline" size="sm">
-                            <FileText className="w-4 h-4 mr-2" />
-                            View Bill
-                          </Button>
-                        </Link>
-                      </div>
+                  <>
+                    <div className="flex items-center justify-between text-sm text-gray-500">
+                      <span>
+                        {sortedOutgoing.length} sale{sortedOutgoing.length !== 1 ? 's' : ''}
+                      </span>
+                      <span>
+                        Total revenue:{' '}
+                        <strong className="text-gray-900">{formatINR(totalSales)}</strong>
+                      </span>
                     </div>
-                  ))
+                    {sortedOutgoing.map(transaction => {
+                      const margin =
+                        transaction.totalRevenue > 0
+                          ? ((transaction.totalProfit / transaction.totalRevenue) * 100).toFixed(1)
+                          : '0.0';
+                      const contact = transaction.customerContact?.trim();
+                      const itemCount = transaction.items.length;
+
+                      return (
+                        <div
+                          key={transaction.id}
+                          className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
+                        >
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-3 mb-3">
+                                <h4 className="font-medium text-gray-900">
+                                  {itemCount} Item{itemCount > 1 ? 's' : ''} Sale
+                                </h4>
+                                <Badge className="bg-blue-600">Sale</Badge>
+                              </div>
+
+                              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                                <div>
+                                  <p className="text-gray-600">Customer</p>
+                                  <p className="font-medium text-gray-900">
+                                    {transaction.customerName}
+                                    {contact ? ` (${contact})` : ''}
+                                  </p>
+                                </div>
+                                <div>
+                                  <p className="text-gray-600">Total Quantity</p>
+                                  <p className="font-medium text-gray-900">
+                                    {totalQty(transaction.items)} units
+                                  </p>
+                                </div>
+                                <div>
+                                  <p className="text-gray-600">Revenue</p>
+                                  <p className="font-medium text-blue-600">
+                                    {formatINR(transaction.totalRevenue)}
+                                  </p>
+                                </div>
+                                <div>
+                                  <p className="text-gray-600">Profit</p>
+                                  <p className="font-medium text-green-600">
+                                    {formatINR(transaction.totalProfit)}
+                                  </p>
+                                  <p className="text-xs text-gray-500">{margin}% margin</p>
+                                </div>
+                              </div>
+
+                              <div className="flex flex-wrap items-center gap-4 mt-3 text-sm text-gray-600">
+                                <span className="flex items-center gap-1">
+                                  <Calendar className="w-4 h-4" />
+                                  {formatTransactionDateTime(transaction.date)}
+                                </span>
+                                <span className="flex items-center gap-1">
+                                  <FileText className="w-4 h-4" />
+                                  Bill: {transaction.billNumber}
+                                </span>
+                              </div>
+                            </div>
+
+                            <Link to={`/bill/${transaction.billNumber}`} className="flex-shrink-0">
+                              <Button variant="outline" size="sm">
+                                <FileText className="w-4 h-4 mr-2" />
+                                View Bill
+                              </Button>
+                            </Link>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </>
                 )}
               </div>
             </TabsContent>
@@ -392,87 +386,83 @@ export function TransactionHistory() {
                     No purchases recorded yet
                   </div>
                 ) : (
-                  sortedIncoming.map(transaction => (
-                    <div
-                      key={transaction.id}
-                      className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
-                    >
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-3 mb-2">
-                            <h4 className="font-medium text-gray-900">
-                              {transaction.items.length} Item{transaction.items.length > 1 ? 's' : ''} Purchase
-                            </h4>
-                            <Badge className="bg-green-600">Purchase</Badge>
-                          </div>
-
-                          {/* List all items */}
-                          <div className="mb-3 space-y-1">
-                            {transaction.items.map((item, idx) => (
-                              <div key={idx} className="text-sm">
-                                <span className="font-medium text-gray-900">{item.itemName}</span>
-                                <span className="text-gray-600"> ({item.sku})</span>
-                                {item.pricePerUnit > 0 && (
-                                  <span className="text-gray-600"> - {item.quantity} units @ {formatINR(item.pricePerUnit)}</span>
-                                )}
-                                {item.pricePerUnit === 0 && (
-                                  <span className="text-gray-500 italic"> - {item.quantity} units (from bundle)</span>
-                                )}
-                              </div>
-                            ))}
-                          </div>
-                          
-                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                            <div>
-                              <p className="text-gray-600">Supplier</p>
-                              <p className="font-medium text-gray-900">{transaction.supplierName}</p>
-                              {transaction.supplierContact && (
-                                <p className="text-gray-500 text-xs">{transaction.supplierContact}</p>
-                              )}
-                            </div>
-                            <div>
-                              <p className="text-gray-600">Total Quantity</p>
-                              <p className="font-medium text-gray-900">
-                                {transaction.items.reduce((sum, item) => sum + item.quantity, 0)} units
-                              </p>
-                            </div>
-                            <div>
-                              <p className="text-gray-600">Items</p>
-                              <p className="font-medium text-gray-900">{transaction.items.length}</p>
-                            </div>
-                            <div>
-                              <p className="text-gray-600">Total Cost</p>
-                              <p className="font-medium text-red-600">{formatINR(transaction.totalCost)}</p>
-                            </div>
-                          </div>
-
-                          <div className="flex items-center gap-4 mt-3 text-sm text-gray-600">
-                            <div className="flex items-center gap-1">
-                              <Calendar className="w-4 h-4" />
-                              {formatDate(transaction.date)}
-                            </div>
-                            <div className="flex items-center gap-1">
-                              <FileText className="w-4 h-4" />
-                              Bill: {transaction.billNumber}
-                            </div>
-                          </div>
-
-                          {transaction.notes && (
-                            <p className="text-sm text-gray-600 mt-2 italic">
-                              Note: {transaction.notes}
-                            </p>
-                          )}
-                        </div>
-
-                        <Link to={`/bill/${transaction.billNumber}`}>
-                          <Button variant="outline" size="sm">
-                            <FileText className="w-4 h-4 mr-2" />
-                            View Bill
-                          </Button>
-                        </Link>
-                      </div>
+                  <>
+                    <div className="flex items-center justify-between text-sm text-gray-500">
+                      <span>
+                        {sortedIncoming.length} purchase{sortedIncoming.length !== 1 ? 's' : ''}
+                      </span>
+                      <span>
+                        Total cost:{' '}
+                        <strong className="text-gray-900">{formatINR(totalPurchases)}</strong>
+                      </span>
                     </div>
-                  ))
+                    {sortedIncoming.map(transaction => {
+                      const contact = transaction.supplierContact?.trim();
+                      const itemCount = transaction.items.length;
+
+                      return (
+                        <div
+                          key={transaction.id}
+                          className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
+                        >
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-3 mb-3">
+                                <h4 className="font-medium text-gray-900">
+                                  {itemCount} Item{itemCount > 1 ? 's' : ''} Purchase
+                                </h4>
+                                <Badge className="bg-green-600">Purchase</Badge>
+                              </div>
+
+                              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                                <div>
+                                  <p className="text-gray-600">Supplier</p>
+                                  <p className="font-medium text-gray-900">
+                                    {transaction.supplierName}
+                                    {contact ? ` (${contact})` : ''}
+                                  </p>
+                                </div>
+                                <div>
+                                  <p className="text-gray-600">Total Quantity</p>
+                                  <p className="font-medium text-gray-900">
+                                    {totalQty(transaction.items)} units
+                                  </p>
+                                </div>
+                                <div>
+                                  <p className="text-gray-600">Items</p>
+                                  <p className="font-medium text-gray-900">{itemCount}</p>
+                                </div>
+                                <div>
+                                  <p className="text-gray-600">Total Cost</p>
+                                  <p className="font-medium text-red-600">
+                                    {formatINR(transaction.totalCost)}
+                                  </p>
+                                </div>
+                              </div>
+
+                              <div className="flex flex-wrap items-center gap-4 mt-3 text-sm text-gray-600">
+                                <span className="flex items-center gap-1">
+                                  <Calendar className="w-4 h-4" />
+                                  {formatTransactionDateTime(transaction.date)}
+                                </span>
+                                <span className="flex items-center gap-1">
+                                  <FileText className="w-4 h-4" />
+                                  Bill: {transaction.billNumber}
+                                </span>
+                              </div>
+                            </div>
+
+                            <Link to={`/bill/${transaction.billNumber}`} className="flex-shrink-0">
+                              <Button variant="outline" size="sm">
+                                <FileText className="w-4 h-4 mr-2" />
+                                View Bill
+                              </Button>
+                            </Link>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </>
                 )}
               </div>
             </TabsContent>
