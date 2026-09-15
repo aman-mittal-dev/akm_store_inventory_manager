@@ -1,6 +1,6 @@
 # FastAPI Backend (PostgreSQL)
 
-Backend for the Inventory Management System (`backend/`, not `backend-fastapi/`).
+Backend for the Inventory Management System (`backend/`).
 
 ## 1) Setup
 
@@ -21,6 +21,9 @@ Backend for the Inventory Management System (`backend/`, not `backend-fastapi/`)
 | `JWT_REFRESH_TOKEN_EXPIRE_DAYS` | Refresh token TTL (default **30**) |
 | `GOOGLE_CLIENT_ID` | Google Sign-In (same as frontend `VITE_GOOGLE_CLIENT_ID`) |
 | `STRIPE_*` / `FRONTEND_BASE_URL` | Subscriptions (Checkout + portal + webhooks) |
+| `CORS_ORIGINS` | Allowed frontend origins |
+| Email / WhatsApp vars | Bill delivery (SendGrid or SMTP; Meta or Twilio) |
+| `AWS_*` / `PUBLIC_BASE_URL` | Optional S3 images + public PDF links |
 
 ## 2) Run
 
@@ -37,23 +40,29 @@ uvicorn app.main:app --reload --port 8000
 backend/app/
 ├── api/
 │   ├── deps.py              # Bearer JWT → current user
-│   └── routes/              # auth, payments, items, transactions, bills, …
+│   └── routes/              # auth, items, transactions, store, bills, payments, public
 ├── core/
 │   ├── config.py
-│   └── security.py          # password hash, access JWT, refresh token helpers
+│   └── security.py          # password hash, access JWT, refresh helpers
 ├── db/
 │   ├── session.py
 │   └── schema_patches.py    # startup ALTERs + refresh_tokens table
 ├── models/
 │   ├── user.py
-│   ├── refresh_token.py     # hashed refresh tokens
+│   ├── refresh_token.py
+│   ├── store.py
+│   ├── item.py
+│   ├── transaction.py
+│   ├── printed_bill.py
 │   └── …
 ├── schemas/
 └── services/
-    ├── token_service.py     # issue / rotate / revoke token pairs
-    ├── user_payload.py      # serialize user + subscription for API
+    ├── token_service.py
+    ├── user_payload.py
     ├── google_auth.py
-    └── stripe_billing.py
+    ├── stripe_billing.py
+    ├── bill_delivery_dispatch.py
+    └── email_*/whatsapp_*
 ```
 
 ## 4) Auth endpoints
@@ -65,7 +74,7 @@ backend/app/
 | `POST` | `/api/v1/auth/google` | Body: `{ "idToken": "…" }` → same token pair |
 | `POST` | `/api/v1/auth/refresh` | Body: `{ "refresh_token": "…" }` → rotated pair |
 | `POST` | `/api/v1/auth/logout` | Body: `{ "refresh_token": "…" }` → revoke |
-| `GET` | `/api/v1/auth/me` | Bearer access token → `{ user }` (includes Stripe subscription when present) |
+| `GET` | `/api/v1/auth/me` | Bearer access token → `{ user }` |
 
 Refresh tokens are **opaque**, stored as **SHA-256 hashes** in `refresh_tokens`, and **rotated** on each refresh.
 
@@ -79,32 +88,51 @@ Refresh tokens are **opaque**, stored as **SHA-256 hashes** in `refresh_tokens`,
 | `POST` | `/api/v1/payments/stripe/billing-portal` | Customer portal URL |
 | `POST` | `/api/v1/payments/stripe/webhook` | Stripe webhooks |
 
-## 6) Other important endpoints
+## 6) Inventory, transactions, store
 
-- `GET/POST/PATCH/DELETE /api/v1/items` (+ image upload)
-- `GET/POST /api/v1/transactions` (incoming / outgoing)
-- `POST /api/v1/bills/print-records`
-- `POST/GET /api/v1/bills/{bill_number}/deliver(y|ies)` (+ retry)
-- `GET /api/v1/public/bill-pdf/{token}` — temporary PDF URL for Twilio
+| Area | Endpoints | Notes |
+|------|-----------|--------|
+| Items | `GET/POST /api/v1/items`, `PATCH/DELETE /api/v1/items/{id}`, `POST …/images/upload` | Owner-scoped |
+| Transactions | `GET /api/v1/transactions`, `POST …/incoming`, `POST …/outgoing`, `PATCH …/{id}/payment-status` | Stock updated server-side |
+| Store | `GET /api/v1/store`, `PUT /api/v1/store` | Per-owner store settings for invoices |
 
-## 7) Schema notes
+### Outgoing (sales) custom lines
+
+- Frontend may send `itemId` as `null` or a `custom-*` string (schema coerces `custom-*` → `null`).
+- Lines with `itemId is None` are **bill-only**: no stock availability check and **no stock decrement**.
+- Inventory UUID lines still require stock and decrement `current_stock`.
+
+### Incoming (purchases) custom lines
+
+- `itemId is None` creates a new inventory item and sets initial stock from the line quantity.
+
+### Outstanding carry
+
+- Optional `previousOutstandingCarried` on create payloads; validated against party outstanding and stored in `items_json`.
+
+## 7) Bills & delivery
+
+| Method | Path | Notes |
+|--------|------|--------|
+| `POST` | `/api/v1/bills/print-records` | Persist client-captured PDF (`billFormat`: `full` \| `compact`) |
+| `GET` | `/api/v1/bills/delivery-config` | Which channels are configured |
+| `POST` | `/api/v1/bills/{bill_number}/deliver` | Queue/send email or WhatsApp |
+| `GET` | `/api/v1/bills/{bill_number}/deliveries` | History |
+| `POST` | `/api/v1/bills/{bill_number}/deliver/{id}/retry` | Retry failed |
+| `GET` | `/api/v1/public/bill-pdf/{token}` | Temporary public PDF URL (e.g. Twilio) |
+
+Client generates PDFs: **full = A4**, **compact ≈ 80mm × content height**.
+
+## 8) Schema notes
 
 On startup, `Base.metadata.create_all` runs, then `schema_patches`:
 
 - `users.google_sub`, nullable `password_hash`, Stripe subscription columns
-- `refresh_tokens` table (id, user_id, token_hash, expires_at, revoked_at)
+- `refresh_tokens` table
+- Other incremental column/table patches as needed
 
-If patches fail, create the refresh table manually:
+If the refresh table is missing, create it manually (see older docs or `schema_patches.py`).
 
-```sql
-CREATE TABLE refresh_tokens (
-  id UUID PRIMARY KEY,
-  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  token_hash VARCHAR(64) NOT NULL,
-  expires_at TIMESTAMPTZ NOT NULL,
-  revoked_at TIMESTAMPTZ,
-  created_at TIMESTAMPTZ DEFAULT now()
-);
-CREATE UNIQUE INDEX ix_refresh_tokens_token_hash ON refresh_tokens (token_hash);
-CREATE INDEX ix_refresh_tokens_user_id ON refresh_tokens (user_id);
-```
+## 9) Changelog
+
+API and schema changes: [`CHANGELOG.md`](./CHANGELOG.md).
